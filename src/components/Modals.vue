@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, nextTick } from 'vue';
 import { S, closeModal, toast, confirmDlg, syncAll, fmtTime, touch } from '../store.js';
 import { loadDemo } from '../appctl.js';
 import { U } from '../../engine/util.js';
@@ -7,13 +7,15 @@ import { U } from '../../engine/util.js';
 const M = computed(() => S.modal);
 
 /* ───────── export ───────── */
-const exp = ref({ includeAudio: true, monitor: false, bitrate: 16, fps: 60 });
+const exp = ref({ mode: 'video', includeAudio: true, monitor: false, bitrate: 16, fps: 60 });
 const canAudio = computed(() => S.audio.has);
+const canOffline = computed(() => typeof window !== 'undefined' && !!window.VideoEncoder);
+function setProgress(p, label) { S.expProg = p; S.expLabel = label || ''; }
 function startExport() {
   const VX = S.vx;
   if (S.exporting) return;
-  S.exporting = true; S.expProg = 0; S.expLabel = 'Starting…';
-  VX.app.onExportProgress = (p, t, dur) => { S.expProg = p; S.expLabel = `${fmtTime(t)} / ${fmtTime(dur)}`; };
+  S.exporting = true; setProgress(0, 'Starting…');
+  VX.app.onExportProgress = (p, t, dur) => setProgress(p, (typeof t === 'string' ? t : `${fmtTime(t)} / ${fmtTime(dur)}`));
   Promise.resolve(VX.exporter.exportVideo({
     includeAudio: exp.value.includeAudio && canAudio.value,
     monitor: exp.value.monitor,
@@ -22,7 +24,114 @@ function startExport() {
   })).finally(() => { S.exporting = false; VX.app.onExportProgress = null; syncAll(); });
   toast('Recording in real time — sit back');
 }
-function cancelExport() { S.vx.exporter.cancel(); }
+function startOffline() {
+  const VX = S.vx;
+  if (S.exporting) return;
+  S.exporting = true; setProgress(0, 'Analyzing audio…');
+  VX.app.onExportProgress = (p, label) => setProgress(p, typeof label === 'string' ? label : '');
+  Promise.resolve(VX.offline.exportMp4({
+    bitrate: exp.value.bitrate * 1e6,
+    fps: exp.value.fps,
+  })).finally(() => { S.exporting = false; VX.app.onExportProgress = null; syncAll(); });
+}
+function startFrames() {
+  const VX = S.vx;
+  if (S.exporting) return;
+  S.exporting = true; setProgress(0, 'Analyzing audio…');
+  VX.app.onExportProgress = (p, label) => setProgress(p, typeof label === 'string' ? label : '');
+  Promise.resolve(VX.exporter.exportFrames({ fps: Math.min(exp.value.fps, 30) }))
+    .finally(() => { S.exporting = false; VX.app.onExportProgress = null; syncAll(); });
+}
+function cancelExport() {
+  const VX = S.vx;
+  if (VX.offline && VX.offline.active) VX.offline.cancel();
+  else VX.exporter.cancel();
+}
+
+/* ───────── crop editor ───────── */
+const cropLayer = computed(() => S.modal?.layer || null);
+const cropRect = ref({ x: 0, y: 0, w: 1, h: 1 });
+const cropCv = ref(null);
+watch(() => S.modal?.type, (t) => {
+  if (t === 'crop' && cropLayer.value) {
+    const p = cropLayer.value.props;
+    cropRect.value = { x: p.cropX || 0, y: p.cropY || 0, w: p.cropW ?? 1, h: p.cropH ?? 1 };
+    nextTick(drawCrop);
+  }
+}, { immediate: true });
+function cropImageEl() {
+  const a = S.vx.assets.get(cropLayer.value?.props?.assetId);
+  return a ? a.el : null;
+}
+function drawCrop() {
+  const c = cropCv.value, el = cropImageEl();
+  if (!c || !el) return;
+  const x = c.getContext('2d');
+  const W = 460, H = 320;
+  c.width = W * 2; c.height = H * 2;
+  x.scale(2, 2);
+  x.clearRect(0, 0, W, H);
+  const iw = el.naturalWidth || 1, ih = el.naturalHeight || 1;
+  const s = Math.min(W / iw, H / ih);
+  const dw = iw * s, dh = ih * s, dx = (W - dw) / 2, dy = (H - dh) / 2;
+  x.drawImage(el, dx, dy, dw, dh);
+  const r = cropRect.value;
+  /* dim everything outside the crop window */
+  x.fillStyle = 'rgba(4,5,9,.66)';
+  x.fillRect(dx, dy, dw, r.y * dh);
+  x.fillRect(dx, dy + (r.y + r.h) * dh, dw, dh - (r.y + r.h) * dh);
+  x.fillRect(dx, dy + r.y * dh, r.x * dw, r.h * dh);
+  x.fillRect(dx + (r.x + r.w) * dw, dy + r.y * dh, dw - (r.x + r.w) * dw, r.h * dh);
+  /* the window itself */
+  x.strokeStyle = '#22d3ee';
+  x.lineWidth = 1.5;
+  x.strokeRect(dx + r.x * dw + .75, dy + r.y * dh + .75, r.w * dw - 1.5, r.h * dh - 1.5);
+  x.fillStyle = 'rgba(34,211,238,.9)';
+  for (const [hx, hy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+    x.fillRect(dx + (r.x + hx * r.w) * dw - 3, dy + (r.y + hy * r.h) * dh - 3, 6, 6);
+  }
+}
+function cropDown(e) {
+  const c = cropCv.value;
+  const el = cropImageEl();
+  if (!c || !el) return;
+  const rect = c.getBoundingClientRect();
+  const iw = el.naturalWidth || 1, ih = el.naturalHeight || 1;
+  const s = Math.min(c.clientWidth / iw, c.clientHeight / ih);
+  const dw = iw * s, dh = ih * s, dx = (c.clientWidth - dw) / 2, dy = (c.clientHeight - dh) / 2;
+  const toImg = (ev) => ({
+    x: U.clamp((ev.clientX - rect.left - dx) / dw, 0, 1),
+    y: U.clamp((ev.clientY - rect.top - dy) / dh, 0, 1),
+  });
+  const p0 = toImg(e);
+  const move = (ev) => {
+    const p1 = toImg(ev);
+    cropRect.value = {
+      x: Math.min(p0.x, p1.x), y: Math.min(p0.y, p1.y),
+      w: Math.abs(p1.x - p0.x), h: Math.abs(p1.y - p0.y),
+    };
+    drawCrop();
+  };
+  const up = () => {
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', up);
+  };
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', up);
+}
+function applyCrop() {
+  const VX = S.vx, l = cropLayer.value;
+  if (!l) { closeModal(); return; }
+  let r = cropRect.value;
+  if (r.w < .02 || r.h < .02) r = { x: 0, y: 0, w: 1, h: 1 }; /* too small = reset */
+  l.props.cropX = +r.x.toFixed(4); l.props.cropY = +r.y.toFixed(4);
+  l.props.cropW = +r.w.toFixed(4); l.props.cropH = +r.h.toFixed(4);
+  VX.project.snapshot('crop image');
+  touch();
+  closeModal();
+  toast(r.w >= 1 && r.h >= 1 ? 'Crop reset' : 'Crop applied');
+}
+function resetCrop() { cropRect.value = { x: 0, y: 0, w: 1, h: 1 }; drawCrop(); }
 
 /* ───────── templates ───────── */
 const templates = computed(() => S.vx ? S.vx.templates.list : []);
@@ -223,30 +332,59 @@ function welcomeTemplates() { S.modal = { type: 'templates' }; }
 
         <!-- EXPORT -->
         <template v-else-if="M.type === 'export'">
-          <div class="m-h"><h3>Export video</h3><button class="ib" v-if="!S.exporting" @click="closeModal()" v-html="U.icon('close')"></button></div>
+          <div class="m-h"><h3>Export</h3><button class="ib" v-if="!S.exporting" @click="closeModal()" v-html="U.icon('close')"></button></div>
           <template v-if="!S.exporting">
+            <div class="x-modes">
+              <button :class="{ on: exp.mode === 'video' }" @click="exp.mode = 'video'">
+                <b>Video</b><span>real-time recording</span>
+              </button>
+              <button :class="{ on: exp.mode === 'mp4' }" :disabled="!canOffline" @click="canOffline && (exp.mode = 'mp4')">
+                <b>MP4 offline</b><span>{{ canOffline ? 'frame-exact · audio-reactive' : 'needs WebCodecs browser' }}</span>
+              </button>
+              <button :class="{ on: exp.mode === 'frames' }" @click="exp.mode = 'frames'">
+                <b>PNG frames</b><span>zip sequence</span>
+              </button>
+            </div>
             <div class="x-row"><span>Canvas</span><b class="mono">{{ S.width }} × {{ S.height }} @ {{ S.fpsProj }} fps</b></div>
             <div class="x-row"><span>Duration</span><b class="mono">{{ fmtTime(S.dur) }}</b></div>
-            <div class="x-row"><span>Audio track</span>
+            <div class="x-row" v-if="exp.mode === 'video'"><span>Audio track</span>
               <label class="sw-row"><input type="checkbox" v-model="exp.includeAudio" :disabled="!canAudio"> include audio</label>
             </div>
-            <div class="x-row"><span>Monitor sound</span>
+            <div class="x-row" v-if="exp.mode === 'video'"><span>Monitor sound</span>
               <label class="sw-row"><input type="checkbox" v-model="exp.monitor"> hear while recording</label>
             </div>
-            <div class="x-row"><span>Bitrate</span>
+            <div class="x-row" v-if="exp.mode !== 'frames'"><span>Bitrate</span>
               <select v-model.number="exp.bitrate"><option :value="8">8 Mbps — small</option><option :value="16">16 Mbps — balanced</option><option :value="32">32 Mbps — pristine</option></select>
             </div>
             <div class="x-row"><span>Frame rate</span>
-              <select v-model.number="exp.fps"><option :value="30">30 fps</option><option :value="60">60 fps</option></select>
+              <select v-model.number="exp.fps"><option :value="24">24 fps</option><option :value="30">30 fps</option><option :value="60">60 fps</option></select>
             </div>
-            <p class="hint">Records in real time with your browser's native encoder — WebM in Firefox, MP4 (H.264) in Chrome where supported.</p>
-            <button class="btn primary big wide" @click="startExport"><span v-html="U.icon('export', 15)"></span>Start recording</button>
+            <p class="hint" v-if="exp.mode === 'video'">Records in real time with your browser's native encoder — WebM in Firefox, MP4 (H.264) in Chrome where supported.</p>
+            <p class="hint" v-else-if="exp.mode === 'mp4'">Encodes frame-by-frame with WebCodecs — faster than real time, every frame exact, and audio-reactivity is precomputed from the track's spectrum. Falls back to VP9/WebM if H.264 is unavailable.</p>
+            <p class="hint" v-else>Exports every frame as a PNG into a single .zip — audio-reactive, perfect for editors and gifs. Keep fps modest; frames add up quickly.</p>
+            <button v-if="exp.mode === 'video'" class="btn primary big wide" @click="startExport"><span v-html="U.icon('export', 15)"></span>Start recording</button>
+            <button v-else-if="exp.mode === 'mp4'" class="btn primary big wide" :disabled="!canOffline" @click="startOffline"><span v-html="U.icon('export', 15)"></span>Encode offline</button>
+            <button v-else class="btn primary big wide" @click="startFrames"><span v-html="U.icon('camera', 15)"></span>Export frames</button>
           </template>
           <template v-else>
             <div class="x-prog"><div class="x-bar" :style="{ width: (S.expProg * 100).toFixed(1) + '%' }"></div></div>
             <div class="x-lab"><span class="mono">{{ S.expLabel }}</span><span class="mono">{{ Math.round(S.expProg * 100) }}%</span></div>
             <button class="btn danger big wide" @click="cancelExport">Cancel</button>
           </template>
+        </template>
+
+        <!-- CROP -->
+        <template v-else-if="M.type === 'crop'">
+          <div class="m-h"><h3>Crop — {{ cropLayer?.name }}</h3><button class="ib" @click="closeModal()" v-html="U.icon('close')"></button></div>
+          <p class="hint">Drag on the image to draw the crop window. The layer then draws only what's inside it.</p>
+          <canvas ref="cropCv" class="cropcv" @pointerdown="cropDown"></canvas>
+          <div class="crop-lab mono lab">window: {{ (cropRect.w * 100).toFixed(1) }}% × {{ (cropRect.h * 100).toFixed(1) }}% at ({{ (cropRect.x * 100).toFixed(1) }}%, {{ (cropRect.y * 100).toFixed(1) }}%)</div>
+          <div class="m-foot">
+            <button class="btn small" @click="resetCrop">Reset</button>
+            <div class="spacer"></div>
+            <button class="btn small" @click="closeModal()">Cancel</button>
+            <button class="btn small primary" @click="applyCrop"><span v-html="U.icon('check', 12)"></span>Apply</button>
+          </div>
         </template>
 
         <!-- HELP -->
@@ -387,6 +525,20 @@ function welcomeTemplates() { S.modal = { type: 'templates' }; }
 .hint b { color: var(--acc); }
 
 .x-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; color: var(--ink2); gap: 10px; }
+.x-modes { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 7px; margin-bottom: 12px; }
+.x-modes button {
+  display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 8px 10px; cursor: pointer; color: var(--ink2); font-family: inherit; text-align: left;
+}
+.x-modes button b { font-size: 12.5px; color: var(--ink); }
+.x-modes button span { font-size: 10px; color: var(--ink3); }
+.x-modes button:hover:not(:disabled) { border-color: var(--line2); }
+.x-modes button.on { border-color: var(--acc); background: rgba(124, 108, 240, .1); }
+.x-modes button.on b { color: var(--acc-ink); }
+.x-modes button:disabled { opacity: .45; cursor: not-allowed; }
+.cropcv { width: 100%; max-width: 460px; aspect-ratio: 460 / 320; border: 1px solid var(--line2); border-radius: 8px; cursor: crosshair; touch-action: none; display: block; margin: 0 auto; background: var(--bg); }
+.crop-lab { text-align: center; margin-top: 8px; }
 .sw-row { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink3); cursor: pointer; }
 .x-prog { height: 8px; background: var(--panel2); border-radius: 5px; overflow: hidden; margin: 18px 0 8px; }
 .x-bar { height: 100%; background: var(--acc); transition: width .2s; }

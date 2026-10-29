@@ -85,6 +85,19 @@ import { VX, U } from './util.js';
     tri: (x) => { const p = (x % 1 + 1) % 1; return p < .5 ? p * 4 - 1 : 3 - p * 4; },
     sq: (x) => ((x % 1 + 1) % 1) < .5 ? -1 : 1,
     if: (c, a, b) => c ? a : b,
+    /* easing helpers (vizzy-parity via bezier-easing) */
+    easeIn: (x) => x * x * x,
+    easeOut: (x) => 1 - Math.pow(1 - U.clamp(x, 0, 1), 3),
+    easeInOut: (x) => { x = U.clamp(x, 0, 1); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; },
+    smoothstep: (x) => { x = U.clamp(x, 0, 1); return x * x * (3 - 2 * x); },
+    bounce: (x) => {
+      x = U.clamp(x, 0, 1);
+      const n = 7.5625, d = 2.75;
+      if (x < 1 / d) return n * x * x;
+      if (x < 2 / d) return n * (x -= 1.5 / d) * x + .75;
+      if (x < 2.5 / d) return n * (x -= 2.25 / d) * x + .9375;
+      return n * (x -= 2.625 / d) * x + .984375;
+    },
     /* live spectrum access — read the audio engine directly so automations
        and the shader layer share one source of truth */
     freq: (n) => {

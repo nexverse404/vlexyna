@@ -171,4 +171,35 @@ for (const [slug, name] of shots) {
   fs.writeFileSync(path.join(OUT, 'fx2-grid.png'), c.toBuffer('image/png'));
   console.log('✓ rendered fx2 grid');
 }
+/* offline timeline showcase — the exact spectrum the offline exporter sees */
+{
+  const proj = VX.project.current;
+  proj.width = 1280; proj.height = 720;
+  proj.layers = [];
+  proj.post = [];
+  const add = (type, fn) => { const l = VX.layers.make(type); fn && fn(l); proj.layers.push(l); return l; };
+  add('background', l => { l.props.mode = 'gradient'; l.props.c1 = '#050810'; l.props.c2 = '#0b1e2d'; });
+  add('spectrum', l => { l.y = .72; l.props.count = 96; l.props.height = .5; l.props.c1 = '#22d3ee'; l.props.c2 = '#7c5cff'; l.props.glow = 26; });
+  add('wave', l => { l.y = .3; l.props.style = 'mirror'; l.props.c1 = '#e2e8f0'; });
+  add('text', l => { l.y = .12; l.props.text = 'OFFLINE TIMELINE'; l.props.size = 4; l.props.c1 = '#e2e8f0'; l.props.anim = 'pulse'; });
+  /* synthesize a 4-second buffer and precompute its spectrum the way exportMp4 does */
+  const SR = 44100, DUR = 4;
+  const data = new Float32Array(SR * DUR);
+  for (let i = 0; i < data.length; i++) {
+    const t = i / SR;
+    data[i] = .2 * Math.sin(2 * Math.PI * 220 * t)
+      + .7 * Math.exp(-((t % .8) * 16)) * Math.sin(2 * Math.PI * 55 * (t % .8))
+      + .12 * Math.sin(2 * Math.PI * 3520 * t) * (Math.sin(t * 6) > 0 ? 1 : .1);
+  }
+  const tl = await VX.offline.precompute({ sampleRate: SR, numberOfChannels: 1, duration: DUR, getChannelData: () => data }, 30);
+  const c = createCanvas(1280, 720);
+  /* frame right after a thump (t = 0.83s) and one mid-gap; warm the bar smoothing first */
+  for (const [i, name] of [[25, 'offline-beat'], [37, 'offline-calm']]) {
+    VX.offline.apply(eng, tl, i);
+    for (let f = 0; f < 10; f++) VX.renderer.render(c, i / 30, { dt: 1 / 30, playing: true });
+    fs.writeFileSync(path.join(OUT, name + '.png'), c.toBuffer('image/png'));
+  }
+  VX.offline.restore(eng);
+  console.log('✓ rendered offline-timeline frames (beat + calm)');
+}
 console.log('done →', OUT);

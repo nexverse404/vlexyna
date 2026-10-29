@@ -1,6 +1,6 @@
 [package]
 name = "vlexyna"
-version = "2.0.0"
+version = "2.1.0"
 description = "Vlexyna Studio — free, unlimited, audio-reactive music video studio"
 authors = ["Vlexyna"]
 edition = "2021"
@@ -16,7 +16,6 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
-serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 [profile.release]

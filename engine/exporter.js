@@ -113,13 +113,14 @@ import { VX, U } from './util.js';
     VX.ui && VX.ui.updateTransport();
   };
 
-  /* offline frame sequence (no audio reactivity) */
+  /* offline frame sequence — fully audio-reactive via the precomputed timeline */
   E.exportFrames = async (opts) => {
     if (E.active) return;
     const proj = VX.project.current;
+    const eng = VX.audio.engine;
     opts = opts || {};
-    const fps = Math.min(30, Math.max(1, opts.fps || 12));
-    const duration = VX.audio.engine.duration || proj.duration || 30;
+    const fps = Math.min(60, Math.max(1, opts.fps || 12));
+    const duration = eng.duration || proj.duration || 30;
     E.active = true; E._cancelled = false;
     E.cancel = () => { E._cancelled = true; };
     VX.app.exporting = true;
@@ -128,20 +129,33 @@ import { VX, U } from './util.js';
     const c = document.createElement('canvas');
     c.width = proj.width; c.height = proj.height;
     const zip = new U.ZipWriter();
-    const total = Math.floor(duration * fps);
-    for (let i = 0; i < total; i++) {
-      const t = i / fps;
-      VX.renderer.render(c, t, { dt: 1 / fps, playing: false });
-      const blob = await new Promise(r => c.toBlob(r, 'image/png'));
-      zip.add(`frame_${String(i).padStart(5, '0')}.png`, new Uint8Array(await blob.arrayBuffer()));
-      VX.app.onExportProgress && VX.app.onExportProgress(i / total, t, duration);
-      if (i % 4 === 0) await new Promise(r => setTimeout(r, 0));
-      if (E._cancelled || !E.active) break;
+    let tl = null;
+    try {
+      if (eng.buffer && VX.offline) {
+        tl = await VX.offline.precompute(eng.buffer, fps,
+          p => VX.app.onExportProgress && VX.app.onExportProgress(p * .3, 'Analyzing audio…', duration));
+      }
+      const total = Math.max(1, Math.floor(duration * fps));
+      for (let i = 0; i < total; i++) {
+        const t = i / fps;
+        if (tl) VX.offline.apply(eng, tl, i);
+        VX.renderer.render(c, t, { dt: 1 / fps, playing: true });
+        const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+        zip.add(`frame_${String(i).padStart(5, '0')}.png`, new Uint8Array(await blob.arrayBuffer()));
+        VX.app.onExportProgress && VX.app.onExportProgress(.3 + .7 * (i / total), t, duration);
+        if (i % 4 === 0) await new Promise(r => setTimeout(r, 0));
+        if (E._cancelled || !E.active) break;
+      }
+      if (tl) VX.offline.restore(eng);
+      const zb = await zip.blob();
+      U.download(zb, `${proj.name.replace(/[^\w\- ]+/g, '') || 'vlexyna'}_frames.zip`);
+      U.toast(`Exported PNG sequence — ${U.fmtBytes(zb.size)}`);
+    } catch (e) {
+      U.toast('Frame export failed: ' + (e && e.message || e), 'err');
+    } finally {
+      if (tl) VX.offline.restore(eng);
+      VX.app.exporting = false; E.active = false; E.cancel = null;
+      if (badge) badge.style.display = 'none';
     }
-    VX.app.exporting = false; E.active = false; E.cancel = null;
-    if (badge) badge.style.display = 'none';
-    const zb = await zip.blob();
-    U.download(zb, `${proj.name.replace(/[^\w\- ]+/g, '') || 'vlexyna'}_frames.zip`);
-    U.toast(`Exported ${total} frames — ${U.fmtBytes(zb.size)}`);
   };
 })();

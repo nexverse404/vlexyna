@@ -16,6 +16,7 @@ try {
     entryPoints: [path.join(ROOT, 'engine/index.js')],
     bundle: true, format: 'iife', platform: 'browser', write: false,
     logLevel: 'silent',
+    external: ['lottie-web', 'mediabunny'], /* optional peers — dynamic import fails at runtime and the fallbacks kick in */
   });
   bundle = r.outputFiles[0].text;
 } catch (e) {
@@ -151,7 +152,7 @@ const noWarns = () => { if (warns.length) { const w = warns.splice(0); throw new
   ok('no boot-time window errors', () => { if (errLog.length) throw new Error(errLog.join(' ; ')); });
 
   console.log('\n── registries ──');
-  ok('20 layer types registered', () => { if (VX.layers.list.length !== 20) throw new Error('got ' + VX.layers.list.length); });
+  ok('21 layer types registered', () => { if (VX.layers.list.length !== 21) throw new Error('got ' + VX.layers.list.length); });
   ok('64 effects registered', () => { if (VX.fx.list.length !== 64) throw new Error('got ' + VX.fx.list.length); });
   ok('18 templates registered', () => { if (VX.templates.list.length !== 18) throw new Error('got ' + VX.templates.list.length); });
   ok('every fx def has id/name/cat/params', () => {
@@ -268,6 +269,12 @@ const noWarns = () => { if (warns.length) { const w = warns.splice(0); throw new
     if (!VX.expr.check('sin(')) throw new Error('should report error');
     if (VX.expr.check('sin(t)') !== null) throw new Error('should pass');
   });
+  ok('expr: easing helpers', () => {
+    const f = VX.expr.compile('easeOut(0.5) + easeInOut(1) + bounce(1) + smoothstep(0.5) + easeIn(0.5)');
+    const v = f({});
+    const want = 0.875 + 1 + 1 + 0.5 + 0.125;
+    if (Math.abs(v - want) > 1e-9) throw new Error('got ' + v + ' want ' + want);
+  });
 
   console.log('\n── automation plumbing ──');
   ok('reactivity delta applies to transform + props', () => {
@@ -296,6 +303,98 @@ const noWarns = () => { if (warns.length) { const w = warns.splice(0); throw new
     VX.renderer.render(cv, 2.5, { dt: 1 / 60, playing: true });
     VX.renderer.render(cv, 0.1, { dt: 1 / 60, playing: true });
     proj.layers.pop();
+  });
+
+  console.log('\n── offline audio timeline (FFT precompute) ──');
+  /* synthetic track: 440 Hz sine throughout + 60 Hz thumps every 1 s */
+  const SR = 44100, SDUR = 3;
+  const synth = new Float32Array(SR * SDUR);
+  for (let i = 0; i < synth.length; i++) {
+    const t = i / SR;
+    synth[i] = .25 * Math.sin(2 * Math.PI * 440 * t)
+      + .8 * Math.exp(-((t % 1) * 18)) * Math.sin(2 * Math.PI * 60 * (t % 1));
+  }
+  const fakeBuffer = {
+    sampleRate: SR, numberOfChannels: 1, duration: SDUR,
+    getChannelData: () => synth,
+  };
+  let tl = null;
+  await okAsync('precompute builds a timeline', async () => {
+    tl = await VX.offline.precompute(fakeBuffer, 30);
+    if (tl.total !== 90) throw new Error('total ' + tl.total);
+    if (tl.freq.length !== tl.total * tl.bins) throw new Error('freq size');
+  });
+  ok('FFT puts 440 Hz energy in the right bin', () => {
+    const fr = 30; /* frame mid-track */
+    const row = fr * tl.bins;
+    const b440 = tl.freq[row + Math.round(440 / (SR / 2) * tl.bins)];
+    const b8k = tl.freq[row + Math.round(8000 / (SR / 2) * tl.bins)];
+    if (b440 < 60) throw new Error('440Hz bin too weak: ' + b440);
+    if (b8k > 15) throw new Error('8kHz bin too strong: ' + b8k);
+  });
+  ok('bass beats detected on thumps', () => {
+    if (!tl.beat.some(b => b >= .99)) throw new Error('no beats found');
+    if (tl.beatCount < 2) throw new Error('beatCount ' + tl.beatCount);
+    /* bass right after a thump must beat bass between thumps */
+    const on = tl.bass[Math.round(1.05 * 30)], off = tl.bass[Math.round(1.5 * 30)];
+    if (!(on > off)) throw new Error('bass on=' + on + ' off=' + off);
+  });
+  ok('apply() swaps engine state, restore() puts it back', () => {
+    const eng = VX.audio.engine;
+    const origFreq = eng.freq, origBands = eng.bands;
+    try {
+      VX.offline.apply(eng, tl, 35);
+      if (eng.freq === origFreq || eng.freq.length !== tl.bins) throw new Error('freq not swapped');
+      if (eng.bands === origBands) throw new Error('bands not swapped');
+      if (eng.freq[10] !== tl.freq[35 * tl.bins + 10]) throw new Error('freq view mismatch');
+    } finally { VX.offline.restore(eng); }
+    if (eng.freq !== origFreq || eng.bands !== origBands) throw new Error('not restored');
+  });
+  ok('offline timeline drives a full render', () => {
+    const eng = VX.audio.engine;
+    const keep = { freq: eng.freq, wave: eng.wave, bands: eng.bands, beat: eng.beat, beatCount: eng.beatCount, playing: eng.playing, buffer: eng.buffer };
+    eng.buffer = fakeBuffer;
+    VX.offline.apply(eng, tl, 40);
+    VX.renderer.render(cv, 40 / 30, { dt: 1 / 30, playing: true });
+    VX.offline.restore(eng);
+    eng.buffer = keep.buffer;
+    if (eng.freq !== keep.freq) throw new Error('restore failed');
+    noWarns();
+  });
+  await okAsync('exportMp4 exits gracefully without WebCodecs', async () => {
+    window.VideoEncoder = undefined;
+    await VX.offline.exportMp4({});
+  });
+
+  console.log('\n── lottie + json assets + crop ──');
+  ok('json asset stored as kind=json with parsed data', () => {
+    const id = VX.assets.addData('json', 'anim.json', null, JSON.stringify({ v: '5.5', fr: 30, ip: 0, op: 30, w: 100, h: 100, layers: [] }));
+    const a = VX.assets.get(id);
+    if (a.kind !== 'json' || !a.data || a.data.fr !== 30) throw new Error('bad asset ' + JSON.stringify(a).slice(0, 80));
+  });
+  await okAsync('lottie layer: placeholder without asset, graceful without lottie-web', async () => {
+    const proj = VX.project.current;
+    const l = VX.layers.make('lottie');
+    proj.layers.push(l);
+    VX.renderer.render(cv, 0, { dt: 1 / 60, playing: true });          /* no asset → placeholder */
+    const id = VX.assets.addData('json', 'a.json', null, JSON.stringify({ v: '5.5', fr: 30, ip: 0, op: 60, w: 64, h: 64, layers: [] }));
+    l.props.assetId = id;
+    for (let f = 0; f < 5; f++) VX.renderer.render(cv, f / 10, { dt: 1 / 60, playing: true }); /* async load kicks off */
+    await new Promise(r => setTimeout(r, 60));                           /* let the failed import settle */
+    VX.renderer.render(cv, 1, { dt: 1 / 60, playing: true });
+    if (l._lot) throw new Error('lottie should be unavailable here');
+    proj.layers.pop();
+    noWarns();
+  });
+  ok('image layer draws with a crop window', () => {
+    const proj = VX.project.current;
+    const l = VX.layers.make('image');
+    l.props.cropX = .1; l.props.cropY = .2; l.props.cropW = .5; l.props.cropH = .6;
+    l.props.assetId = 'nonexistent'; /* crop path guards on element size anyway */
+    proj.layers.push(l);
+    VX.renderer.render(cv, 0, { dt: 1 / 60, playing: true });
+    proj.layers.pop();
+    noWarns();
   });
 
   console.log('\n── undo / redo / persistence ──');
@@ -329,6 +428,13 @@ const noWarns = () => { if (warns.length) { const w = warns.splice(0); throw new
   console.log('\n── exporter ──');
   ok('snapshotPNG path', () => { VX.exporter.snapshotPNG(); });
   ok('bestMime picks a format', () => { if (!VX.exporter.bestMime()) throw new Error('none'); });
+  await okAsync('exportFrames zips an audio-reactive sequence', async () => {
+    const eng = VX.audio.engine;
+    const keepBuf = eng.buffer, keepDur = eng.duration;
+    eng.buffer = fakeBuffer; eng.duration = 0.5;
+    await VX.exporter.exportFrames({ fps: 4 });
+    eng.buffer = keepBuf; eng.duration = keepDur;
+  });
 
   console.log('\n── environment / vars ──');
   ok('project vars flow into env', () => {

@@ -53,6 +53,7 @@ VX.ui = {
   refreshInspector: () => touch(),
   refreshTimeline: () => touchTl(),
   openLyricsEditor: (layer) => openModal('lyrics', { layer }),
+  openCropper: (layer) => openModal('crop', { layer }),
 };
 
 /* Boot the project store immediately (synchronous localStorage read) so Vue
@@ -135,6 +136,20 @@ export async function handleDrop(f) {
     VX.project.snapshot('import lyrics');
     S.sel = lyr.id; syncAll();
     toast(`Imported ${lines.length} lyric lines`);
+    return;
+  }
+  if (/\.json$/i.test(f.name) || (f.type || '').includes('json')) {
+    /* Lottie animation files become a Lottie layer */
+    let data = null;
+    try { data = JSON.parse(await U.readText(f)); } catch (e) { toast('That file is not valid JSON', 'warn'); return; }
+    if (data && data.v && data.fr && Array.isArray(data.layers)) {
+      const id = await VX.assets.addFile(f);
+      const l = VX.layers.make('lottie'); l.props.assetId = id; l.name = f.name.slice(0, 24);
+      VX.project.current.layers.push(l); VX.project.snapshot('drop lottie');
+      S.sel = l.id; syncAll(); toast('Lottie animation added');
+    } else {
+      toast('JSON file is not a Lottie animation (needs v / fr / layers)', 'warn');
+    }
     return;
   }
   toast('Unsupported file: ' + f.name, 'warn');

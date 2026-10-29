@@ -9,6 +9,15 @@ import { VX, U } from './util.js';
     map: new Map(),
     async addFile(file) {
       const id = U.uid();
+      /* Lottie / JSON assets are stored as parsed text, not as an element */
+      const isJson = (file.type && file.type.includes('json')) || /\.json$/i.test(file.name);
+      if (isJson) {
+        const text = await U.readText(file);
+        let data = null;
+        try { data = JSON.parse(text); } catch (e) { }
+        A.map.set(id, { id, kind: 'json', name: file.name, data, text });
+        return id;
+      }
       const dataUrl = await U.readDataURL(file);
       const kind = file.type.startsWith('video') ? 'video' : 'image';
       let el;
@@ -23,8 +32,14 @@ import { VX, U } from './util.js';
       A.map.set(id, { id, kind, name: file.name, dataUrl, el });
       return id;
     },
-    addData(kind, name, dataUrl) {
+    addData(kind, name, dataUrl, text) {
       const id = U.uid();
+      if (kind === 'json') {
+        let data = null;
+        try { data = JSON.parse(text || dataUrl || 'null'); } catch (e) { }
+        A.map.set(id, { id, kind: 'json', name, data, text: text || dataUrl });
+        return id;
+      }
       let el;
       if (kind === 'image') { el = new Image(); el.src = dataUrl; }
       else { el = document.createElement('video'); el.src = dataUrl; el.muted = true; el.playsInline = true; el.loop = true; el.preload = 'auto'; }
@@ -46,12 +61,12 @@ import { VX, U } from './util.js';
     },
     serialize() {
       const o = [];
-      for (const a of A.map.values()) o.push({ id: a.id, kind: a.kind, name: a.name, dataUrl: a.dataUrl });
+      for (const a of A.map.values()) o.push({ id: a.id, kind: a.kind, name: a.name, dataUrl: a.dataUrl, text: a.text });
       return o;
     },
     load(list) {
       if (!list) return;
-      for (const a of list) if (!A.map.has(a.id)) A.addData(a.kind, a.name, a.dataUrl);
+      for (const a of list) if (!A.map.has(a.id)) A.addData(a.kind, a.name, a.dataUrl, a.text);
     }
   };
 
@@ -59,7 +74,7 @@ import { VX, U } from './util.js';
   L.register({
     id: 'image', name: 'Image', cat: 'Media', icon: 'image',
     desc: 'Picture / logo with audio-reactive motion',
-    defaults: () => ({ assetId: '', fit: 'contain', size: .5, pulse: .12, spin: 0, bob: 0, bobSpeed: 1, circle: false, fade: 0, shadow: 0 }),
+    defaults: () => ({ assetId: '', fit: 'contain', size: .5, pulse: .12, spin: 0, bob: 0, bobSpeed: 1, circle: false, fade: 0, shadow: 0, cropX: 0, cropY: 0, cropW: 1, cropH: 1 }),
     params: [
       P.file('assetId', 'Image file', 'image/*'),
       P.sel('fit', 'Fit', [['contain', 'Contain'], ['cover', 'Cover']], 'contain'),
@@ -69,6 +84,13 @@ import { VX, U } from './util.js';
       P.num('bob', 'Bob (float)', 0, 1, .01, 0), P.num('bobSpeed', 'Bob speed', .1, 6, .1, 1),
       P.bool('circle', 'Circle mask'),
       P.num('shadow', 'Shadow', 0, 100, 1, 0),
+      P.group('Crop', [
+        P.num('cropX', 'Crop X', 0, 1, .001, 0),
+        P.num('cropY', 'Crop Y', 0, 1, .001, 0),
+        P.num('cropW', 'Crop width', .01, 1, .001, 1),
+        P.num('cropH', 'Crop height', .01, 1, .001, 1),
+        P.act('crop', '✂ Crop editor…', (l) => (VX.ui && VX.ui.openCropper) ? VX.ui.openCropper(l) : U.toast('Crop editor is available in the studio app')),
+      ]),
     ],
     draw(x, st) {
       const { H, p, a, t, layer } = st;
@@ -85,7 +107,17 @@ import { VX, U } from './util.js';
       x.translate(0, Math.sin(t * p.bobSpeed * 2) * p.bob * H * .1);
       if (p.shadow) { x.shadowBlur = p.shadow * (H / 1080); x.shadowColor = 'rgba(0,0,0,.55)'; }
       if (p.circle) { x.beginPath(); x.arc(0, 0, w / 2, 0, 7); x.clip(); }
-      (p.fit === 'cover' ? A.drawCover : A.drawContain)(x, asset.el, 0, 0, w, h);
+      const iw = asset.el.naturalWidth || asset.el.videoWidth || 0, ih = asset.el.naturalHeight || asset.el.videoHeight || 0;
+      if (iw && ih && (p.cropW < 1 || p.cropH < 1)) {
+        /* cropped draw: source rect is the normalized crop window */
+        const sx = p.cropX * iw, sy = p.cropY * ih;
+        const sw = Math.max(1, p.cropW * iw), sh = Math.max(1, p.cropH * ih);
+        const s = p.fit === 'cover' ? Math.max(w / sw, h / sh) : Math.min(w / sw, h / sh);
+        const dw = sw * s, dh = sh * s;
+        x.drawImage(asset.el, sx, sy, sw, sh, -dw / 2, -dh / 2, dw, dh);
+      } else {
+        (p.fit === 'cover' ? A.drawCover : A.drawContain)(x, asset.el, 0, 0, w, h);
+      }
       x.restore();
     }
   });
