@@ -120,6 +120,9 @@ defineExpose({ redrawAll });
         <span class="lab">{{ pps }} px/s</span>
         <button class="ib tiny" @click="zi = Math.min(ZOOMS.length - 1, zi + 1); nextTick(redrawAll)" :disabled="zi === ZOOMS.length - 1" title="Zoom in">+</button>
         <button class="ib tiny" :class="{ on: snap }" @click="snap = !snap" title="Snap to ¼ s">⇥</button>
+        <div class="spacer"></div>
+        <button class="ib tiny" @click="S.ui.tl = !S.ui.tl" :title="S.ui.tl ? 'Collapse timeline' : 'Expand timeline'"
+                v-html="U.icon(S.ui.tl ? 'down' : 'up', 13)"></button>
       </div>
       <div class="tl-audio-row">
         <span class="lab">audio</span>
@@ -153,9 +156,13 @@ defineExpose({ redrawAll });
 <style scoped>
 .tl {
   grid-area: tl;
-  display: grid; grid-template-columns: 250px 1fr; min-height: 0;
+  display: grid; grid-template-columns: 250px 1fr; min-height: 0; overflow: hidden;
   background: var(--bg2); border-top: 1px solid var(--line);
 }
+.tl-side-tools .spacer { flex: 1; }
+@media (max-width: 1220px) { .tl { grid-template-columns: 190px 1fr; } }
+@media (max-width: 880px)  { .tl { grid-template-columns: 148px 1fr; } }
+@media (max-width: 560px)  { .tl { grid-template-columns: 104px 1fr; } .tl-side-tools .lab { display: none; } }
 .tl-side { border-right: 1px solid var(--line); display: flex; flex-direction: column; overflow: hidden; }
 .tl-side-tools { display: flex; align-items: center; gap: 5px; padding: 4px 10px; height: 34px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
 .ib.tiny { width: 20px; height: 20px; font-size: 13px; }

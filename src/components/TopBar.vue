@@ -70,6 +70,9 @@ function newProject() {
     <input class="pname" v-model="nameModel" spellcheck="false" title="Project name" @change="S.vx.project.snapshot('rename')">
     <span class="saved" :class="{ on: Date.now() - S.savedFlash < 1200 }" title="Autosaved to this browser">●</span>
 
+    <button class="ib only-narrow" :class="{ on: S.ui.left }" @click="S.ui.left = !S.ui.left; S.ui.right = false" title="Layers panel" v-html="U.icon('layers')"></button>
+    <button class="ib only-narrow" :class="{ on: S.ui.right }" @click="S.ui.right = !S.ui.right; S.ui.left = false" title="Inspector panel" v-html="U.icon('settings')"></button>
+
     <div class="divider"></div>
     <select v-model="sizeVal" title="Canvas size">
       <option v-for="s in sizes" :key="s[0]" :value="s[0]">{{ s[1] }}</option>
@@ -77,7 +80,7 @@ function newProject() {
     <select :value="String(S.fpsProj)" @change="S.vx.project.current.fps = +$event.target.value; S.vx.project.snapshot('fps'); S.fpsProj = +$event.target.value" title="Frame rate">
       <option value="24">24 fps</option><option value="30">30 fps</option><option value="60">60 fps</option>
     </select>
-    <select :value="String(S.vx?.app.previewQuality ?? 720)" @change="S.vx.app.previewQuality = +$event.target.value" title="Preview quality — lower renders faster">
+    <select class="only-wide" :value="String(S.vx?.app.previewQuality ?? 720)" @change="S.vx.app.previewQuality = +$event.target.value" title="Preview quality — lower renders faster">
       <option v-for="q in quals" :key="q[0]" :value="String(q[0])">{{ q[1] }}</option>
     </select>
 
@@ -86,21 +89,22 @@ function newProject() {
     <button class="ib" :disabled="!S.canRedo" @click="redo" title="Redo (Ctrl+Shift+Z)" v-html="U.icon('redo')"></button>
 
     <div class="spacer"></div>
-    <span class="fps mono" v-if="S.fps">{{ S.fps }} fps</span>
+    <span class="fps mono only-wide" v-if="S.fps">{{ S.fps }} fps</span>
 
-    <button class="btn" @click="openModal('templates')" title="Templates (T)"><span v-html="U.icon('template', 13)"></span>Templates</button>
-    <button class="btn" @click="openModal('projects')" title="Projects"><span v-html="U.icon('folder', 13)"></span>Projects</button>
-    <button class="btn" @click="snapshot" title="Save frame as PNG (P)"><span v-html="U.icon('camera', 13)"></span>Frame</button>
+    <button class="btn" @click="openModal('templates')" title="Templates (T)"><span v-html="U.icon('template', 13)"></span><span class="bt-txt">Templates</span></button>
+    <button class="btn" @click="openModal('projects')" title="Projects"><span v-html="U.icon('folder', 13)"></span><span class="bt-txt">Projects</span></button>
+    <button class="btn" @click="snapshot" title="Save frame as PNG (P)"><span v-html="U.icon('camera', 13)"></span><span class="bt-txt">Frame</span></button>
     <button class="ib" @click="document.getElementById('stage')?.requestFullscreen?.()" title="Fullscreen (F)" v-html="U.icon('fullscreen')"></button>
     <button class="ib" @click="openModal('help')" title="Help & shortcuts (?)" v-html="U.icon('help')"></button>
-    <button class="btn primary" @click="openModal('export')" title="Export video (E)"><span v-html="U.icon('export', 13)"></span>Export</button>
+    <button class="btn primary" @click="openModal('export')" title="Export video (E)"><span v-html="U.icon('export', 13)"></span><span class="bt-txt">Export</span></button>
   </header>
 </template>
 
 <style scoped>
 .bar {
   grid-area: top;
-  display: flex; align-items: center; gap: 9px; padding: 0 12px;
+  display: flex; align-items: center; flex-wrap: wrap; column-gap: 9px; row-gap: 4px;
+  min-height: var(--h-top); padding: 4px 12px;
   background: var(--bg2); border-bottom: 1px solid var(--line);
 }
 .brand { display: flex; align-items: center; gap: 8px; }
@@ -116,4 +120,17 @@ function newProject() {
 .saved { color: var(--ok); font-size: 8px; opacity: 0; transition: opacity .4s; }
 .saved.on { opacity: 1; }
 .fps { color: var(--ink3); font-size: 11px; }
+.bar select { max-width: 150px; }
+@media (max-width: 1024px) {
+  .pname { width: 104px; }
+  .bar select { max-width: 118px; }
+}
+@media (max-width: 880px) {
+  .pname { width: 92px; }
+  .divider { display: none; }
+}
+@media (max-width: 560px) {
+  .brand-t { display: none; }
+  .pname { width: 84px; }
+}
 </style>

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { S, closeMenu, closeModal, toast, openModal } from './store.js';
 import { handleDrop } from './appctl.js';
 import { U } from '../engine/util.js';
@@ -14,6 +14,14 @@ import Modals from './components/Modals.vue';
 const dragging = ref(false);
 let dragN = 0;
 
+/* timeline collapse is pure CSS (body class retunes --h-tl for .app and the toasts) */
+watch(() => S.ui.tl, v => document.body.classList.toggle('tl-closed', !v), { immediate: true });
+
+function toggleDrawer(side) {
+  S.ui[side] = !S.ui[side];
+  S.ui[side === 'left' ? 'right' : 'left'] = false;
+}
+
 const menuStyle = computed(() => {
   if (!S.menu) return {};
   return {
@@ -24,7 +32,12 @@ const menuStyle = computed(() => {
 
 function onKey(e) {
   const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName);
-  if (e.key === 'Escape') { closeModal(); closeMenu(); if (document.fullscreenElement) document.exitFullscreen(); return; }
+  if (e.key === 'Escape') {
+    closeModal(); closeMenu();
+    S.ui.left = S.ui.right = false;
+    if (document.fullscreenElement) document.exitFullscreen();
+    return;
+  }
   if (typing) return;
   const VX = S.vx;
   if (!VX) return;
@@ -119,6 +132,11 @@ onBeforeUnmount(() => {
     <Inspector />
     <Timeline />
   </div>
+
+  <!-- narrow-viewport drawers -->
+  <Teleport to="body">
+    <div v-if="S.ui.left || S.ui.right" class="drawer-scrim" @click="toggleDrawer(S.ui.left ? 'left' : 'right')"></div>
+  </Teleport>
 
   <!-- context menu -->
   <Teleport to="body">

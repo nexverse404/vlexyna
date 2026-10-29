@@ -90,7 +90,7 @@ const post = computed(() => { S.rev; return S.vx?.project?.current?.post || []; 
 </script>
 
 <template>
-  <aside class="panel insp">
+  <aside class="panel insp drawer side-r" :class="{ open: S.ui.right }">
     <div class="ph">
       <span class="ph-t">Inspector</span>
       <div class="spacer"></div>
@@ -99,6 +99,7 @@ const post = computed(() => { S.rev; return S.vx?.project?.current?.post || []; 
           {{ t === 'props' ? 'Layer' : t === 'auto' ? 'Auto' : 'Effects' }}
         </button>
       </div>
+      <button class="ib only-narrow" @click="S.ui.right = false" title="Close panel" v-html="U.icon('close')"></button>
     </div>
 
     <div class="pbody">
@@ -178,6 +179,9 @@ const post = computed(() => { S.rev; return S.vx?.project?.current?.post || []; 
 
 <style scoped>
 .insp { grid-area: right; display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--line); }
+@media (max-width: 1220px) {
+  .insp { border-left: none; }
+}
 .pbody { overflow-y: auto; flex: 1; padding: 10px 12px; }
 .tabs { display: flex; gap: 2px; background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 2px; }
 .tabs button {

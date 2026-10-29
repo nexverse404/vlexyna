@@ -87,12 +87,13 @@ function onDragEnd() { if (dragId !== null) { dragId = null; S.vx.project.snapsh
 </script>
 
 <template>
-  <aside class="panel layers">
+  <aside class="panel layers drawer side-l" :class="{ open: S.ui.left }">
     <div class="ph">
       <span class="ph-t">Layers</span>
       <span class="lab">{{ layersRev.length }}</span>
       <div class="spacer"></div>
       <button class="ib" @click="addMenu" title="Add layer" v-html="U.icon('add')"></button>
+      <button class="ib only-narrow" @click="S.ui.left = false" title="Close panel" v-html="U.icon('close')"></button>
     </div>
     <div class="plist">
       <p class="empty" v-if="!layersRev.length">Nothing here yet.<br>Use <b>+</b> above — start with the demo beat and a generator.</p>
@@ -120,6 +121,9 @@ function onDragEnd() { if (dragId !== null) { dragId = null; S.vx.project.snapsh
 
 <style scoped>
 .layers { grid-area: left; display: flex; flex-direction: column; min-height: 0; }
+@media (max-width: 1220px) {
+  .layers { display: flex; }   /* keep flex layout while the .drawer class makes it an overlay */
+}
 .ph { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--line); }
 .ph-t { font-weight: 600; font-size: 12.5px; }
 .plist { overflow-y: auto; flex: 1; padding: 5px; }

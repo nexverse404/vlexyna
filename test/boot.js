@@ -112,6 +112,40 @@ if (VX) {
   check(VX.project.current.layers.length > 0, 'play/undo/redo round-trip');
   check(typeof VX.renderer.render === 'function', 'renderer exposed');
 }
+
+/* ── responsive chrome: drawers + timeline collapse (state is DOM-observable) ── */
+{
+  const doc = chosen.window.document;
+  const tick = () => new Promise(r => setTimeout(r, 30));   /* let Vue flush the patch */
+  const layersPanel = doc.querySelector('.layers');
+  const inspPanel = doc.querySelector('.insp');
+  const toggles = [...doc.querySelectorAll('header.bar .only-narrow')];
+  check(toggles.length >= 2, 'drawer toggle buttons rendered (narrow toolbar)');
+  if (toggles.length >= 2 && layersPanel && inspPanel) {
+    toggles[0].click(); await tick();                      /* layers drawer */
+    check(layersPanel.classList.contains('open'), 'layers drawer opens on toggle');
+    check(!!doc.querySelector('.drawer-scrim'), 'drawer scrim appears');
+    doc.querySelector('.drawer-scrim').click(); await tick();
+    check(!layersPanel.classList.contains('open') && !doc.querySelector('.drawer-scrim'), 'scrim click closes drawer');
+    toggles[1].click(); await tick();                      /* inspector drawer */
+    check(inspPanel.classList.contains('open'), 'inspector drawer opens on toggle');
+    toggles[1].click(); await tick();
+    check(!inspPanel.classList.contains('open'), 'inspector drawer closes on toggle');
+  }
+  const tlBtns = [...doc.querySelectorAll('.tl-side-tools .ib')];
+  const collapse = tlBtns[tlBtns.length - 1];
+  if (collapse) {
+    collapse.click(); await tick();
+    check(doc.body.classList.contains('tl-closed'), 'timeline collapse adds body class');
+    collapse.click(); await tick();
+    check(!doc.body.classList.contains('tl-closed'), 'timeline expand removes it');
+  }
+  /* the built CSS must carry the breakpoints */
+  const css = fs.readdirSync(distDir).filter(f => f.endsWith('.css')).map(f => fs.readFileSync(path.join(distDir, f), 'utf8')).join('');
+  check(/@media[^{]*max-width:\s*1220px/.test(css), 'CSS has the drawer breakpoint (1220px)');
+  check(/@media[^{]*max-width:\s*880px/.test(css) && /@media[^{]*max-height:\s*560px/.test(css), 'CSS has narrow + short-viewport retunes');
+  check(/tl-closed/.test(css) && /drawer-scrim/.test(css), 'CSS has collapse + scrim rules');
+}
 check(chosen._errLog.length === 0, 'zero runtime errors');
 if (chosen._errLog.length) chosen._errLog.slice(0, 8).forEach(e => console.log('     ', e));
 console.log(pass ? '\nBOOT TEST PASSED' : '\nBOOT TEST FAILED');

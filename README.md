@@ -40,6 +40,7 @@ through any static server rooted at the repo root).
 | **Image tools** | interactive crop editor, circle mask, contain/cover, pulse/spin/bob motion |
 | **Projects** | autosaved locally, multi-project browser, undo/redo, `.vlx` project import/export (share projects as files — no cloud, no account) |
 | **Design** | taste-skill house style — Space Grotesk + IBM Plex Mono, one accent, flat surfaces, honest empty states |
+| **Any viewport** | progressive layout — panels become drawers and the timeline collapses on narrow screens, short windows keep a usable stage, keyboard-focus rings, reduced-motion support |
 
 ## Repository layout
 
