@@ -1,5 +1,6 @@
 /* Vlexyna — media.js — assets + image/video/text/lyrics/progress layers */
 'use strict';
+import { VX, U } from './util.js';
 (() => {
   const P = VX.P, L = VX.layers;
 

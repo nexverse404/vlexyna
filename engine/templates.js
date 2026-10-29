@@ -1,5 +1,6 @@
 /* Vlexyna — templates.js — ready-made project templates */
 'use strict';
+import { VX, U } from './util.js';
 (() => {
   const T = VX.templates = { list: [] };
 
@@ -222,5 +223,28 @@
     layers: [
       { type: 'background', props: { mode: 'gradient', c1: '#0a0c12', c2: '#12151f', vign: .35 } },
     ],
+  });
+  /* two more showcase templates using the new layers/effects */
+  T.add({
+    name: 'Shader Lab', desc: 'GLSL shader + spectrum + lyrics',
+    grad: ['#f472b6', '#22d3ee'],
+    layers: [
+      { type: 'shader', props: { quality: .75 } },
+      { type: 'spectrum', y: .85, props: { mode: 'bars', count: 72, barWidth: .3, height: .3, c1: '#ffffff', c2: '#22d3ee', solid: false, glow: 20 } },
+      { type: 'lyrics', y: .4, props: { size: 5, c1: '#ffffff', style: 'zoom', shadowBlur: 30 } },
+    ],
+    post: [FXm('vignette', { strength: .4 })],
+  });
+
+  T.add({
+    name: 'Orbital', desc: 'Spherical field & 3D particles',
+    grad: ['#22d3ee', '#7c5cff'],
+    layers: [
+      { type: 'background', props: { mode: 'gradient', c1: '#03040a', c2: '#0b1024', vign: .6 } },
+      { type: 'particles3d', props: { count: 320, speed: 1.6, c1: '#e0f7ff', c2: '#134e5e', glow: 14 } },
+      { type: 'spherefield', props: { count: 800, radius: .26, c1: '#22d3ee', c2: '#f472b6', glow: 16, pulse: .8 } },
+      { type: 'text', y: .85, props: { text: 'ORBITAL', size: 4, weight: 800, c1: '#dbe7ff', letterSpacing: 18, anim: 'float', animAmt: .4 } },
+    ],
+    post: [FXm('bloom', { threshold: .6, radius: 26, intensity: .8 })],
   });
 })();

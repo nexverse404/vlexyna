@@ -1,5 +1,6 @@
 /* Vlexyna — ui.js — studio interface */
 'use strict';
+import { VX, U } from '../../engine/util.js';
 (() => {
   const H = VX.ui = {};
   const P = VX.P;

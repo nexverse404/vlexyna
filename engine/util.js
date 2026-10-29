@@ -1,6 +1,7 @@
 /* Vlexyna — util.js — helpers, icons, zip, toast */
 'use strict';
 const VX = window.VX || (window.VX = {});
+/* ESM + classic dual-mode: bindings exported for bundlers, VX kept on window */
 const U = VX.util = {};
 
 U.$ = (sel, root) => (root || document).querySelector(sel);
@@ -161,3 +162,5 @@ U.palette = (base) => {
   return [0, 40, 80, 160, 200, 300].map(off => `hsl(${((h0 * 360) + off) % 360}, 85%, 60%)`);
 };
 U.hsl = (h, s, l) => `hsl(${((h % 360) + 360) % 360},${s}%,${l}%)`;
+
+export { U, VX };

@@ -1,5 +1,6 @@
 /* Vlexyna — exporter.js — video / PNG / frame-sequence export */
 'use strict';
+import { VX, U } from './util.js';
 (() => {
   const E = VX.exporter = {};
   E.active = false;

@@ -1,5 +1,6 @@
 /* Vlexyna — expr.js — safe math expression evaluator for automations */
 'use strict';
+import { VX, U } from './util.js';
 (() => {
   const E = VX.expr = {};
 
@@ -84,6 +85,19 @@
     tri: (x) => { const p = (x % 1 + 1) % 1; return p < .5 ? p * 4 - 1 : 3 - p * 4; },
     sq: (x) => ((x % 1 + 1) % 1) < .5 ? -1 : 1,
     if: (c, a, b) => c ? a : b,
+    /* live spectrum access — read the audio engine directly so automations
+       and the shader layer share one source of truth */
+    freq: (n) => {
+      const eng = VX.audio && VX.audio.engine;
+      if (!eng || !eng.freq || !eng.freq.length) return 0;
+      const i = U.clamp(Math.round((U.clamp(n, 0, 1)) * (eng.freq.length - 1)), 0, eng.freq.length - 1);
+      return eng.freq[i] / 255;
+    },
+    fft: (f0, f1) => {
+      const eng = VX.audio && VX.audio.engine;
+      if (!eng || !eng.range) return 0;
+      return eng.range(f0, f1);
+    },
   };
 
   function evalNode(n, env) {

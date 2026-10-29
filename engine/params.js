@@ -1,7 +1,7 @@
 /* Vlexyna — params.js — param schema helpers shared by layers & effects */
 'use strict';
-(() => {
-  const P = VX.P = {
+import { VX } from './util.js';
+const P = VX.P = {
     num: (key, label, min, max, step, def, opts) => ({ t: 'num', key, label, min, max, step, def, ...opts }),
     color: (key, label, def, opts) => ({ t: 'color', key, label, def, ...opts }),
     sel: (key, label, options, def, opts) => ({ t: 'sel', key, label, options, def, ...opts }),
@@ -12,4 +12,4 @@
     act: (key, label, fn) => ({ t: 'act', key, label, fn }),
     group: (label, params, opts) => ({ t: 'group', label, params, ...opts }),
   };
-})();
+export { P };

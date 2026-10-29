@@ -1,5 +1,6 @@
 /* Vlexyna — renderer.js — frame composition engine */
 'use strict';
+import { VX, U } from './util.js';
 (() => {
   const R = VX.renderer = {};
   R.buffers = [null, null];
@@ -18,7 +19,14 @@
 
   R.autoDelta = (layer, key, env) => {
     const a = layer.auto && layer.auto[key];
-    if (!a || !a.src || a.src === 'none') return 0;
+    if (!a) return 0;
+    /* v2 model: a plain string is a full expression — “beat*0.3”, “sin(t*2)*.2” */
+    if (typeof a === 'string') {
+      if (!a.trim()) return 0;
+      try { return VX.expr.compile(a)(env) || 0; } catch (e) { return 0; }
+    }
+    /* v1 model (kept for older saved projects): { src, amt } or { src: 'expr', expr } */
+    if (!a.src || a.src === 'none') return 0;
     if (a.src === 'expr') {
       if (!a.expr) return 0;
       try { return VX.expr.compile(a.expr)(env) || 0; } catch (e) { return 0; }
@@ -64,8 +72,17 @@
 
         const st = {
           W, H, t, dt: opts.dt || 0, a, p, layer, env, playing, time: t, duration,
-          project: proj, alpha, layerLocal: t - (layer.start || 0)
+          project: proj, alpha, layerLocal: t - (layer.start || 0), frameBefore: null
         };
+        /* snapshot the frame-so-far for the Render Layer effect */
+        if (layer.fx && layer.fx.some(f => f.enabled && f.id === 'renderlayer')) {
+          const snap = getBuf(1, W, H);
+          const sx2 = snap.getContext('2d');
+          sx2.setTransform(1, 0, 0, 1, 0, 0); sx2.globalAlpha = 1; sx2.globalCompositeOperation = 'source-over'; sx2.filter = 'none';
+          sx2.clearRect(0, 0, W, H);
+          sx2.drawImage(canvas, 0, 0);
+          st.frameBefore = snap;
+        }
 
         const needsBuffer = (layer.fx && layer.fx.length) || layer.mirror !== 'none';
         if (!needsBuffer && !def.noTransform) {

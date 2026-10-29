@@ -1,5 +1,7 @@
-/* Vlexyna — main.js — app state & bootstrap */
-'use strict';
+/* Vlexyna — web/js/main.js — legacy no-build app bootstrap (ESM) */
+import '../../engine/index.js';
+import { VX, U } from '../../engine/util.js';
+
 (() => {
   const app = VX.app = {
     playing: false, time: 0, loop: true, muted: false, micOn: false, exporting: false,
@@ -33,7 +35,6 @@
   const boot = () => {
     if (booted) return;
     booted = true;
-    /* visible error trap — helps diagnose issues instantly */
     window.addEventListener('error', (e) => {
       U.toast('⚠ ' + (e.message || 'Script error'), 'err');
       console.error(e.error || e.message);
@@ -58,7 +59,6 @@
     VX.ui.refreshAll();
     VX.ui.updateUndo();
 
-    /* resume audio ctx on first gesture */
     const kick = () => { VX.audio.engine.resume(); document.removeEventListener('pointerdown', kick); };
     document.addEventListener('pointerdown', kick);
 

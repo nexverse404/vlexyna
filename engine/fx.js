@@ -1,7 +1,9 @@
 /* Vlexyna — fx.js — per-layer / global effect stack engine */
 'use strict';
+import { VX, U } from './util.js';
+import { P } from './params.js';
 (() => {
-  const P = VX.P, FX = VX.fx = { list: [], byId: {} };
+  const P2 = P, FX = VX.fx = { list: [], byId: {} };
   FX.register = (def) => { FX.list.push(def); FX.byId[def.id] = def; return def; };
   FX.defaults = (def) => { const o = {}; for (const p of def.params) if (p.t !== 'group' && p.t !== 'act') o[p.key] = p.def; return o; };
   FX.make = (id) => ({ id, enabled: true, params: FX.defaults(FX.byId[id]) });
@@ -26,7 +28,7 @@
       const def = FX.byId[fx.id]; if (!def) continue;
       const dst = getScratch((i++) % 2, cur.width, cur.height);
       if (dst.c === cur) continue; /* never draw a buffer onto itself */
-      try { def.apply(dst.x, dst.c, cur, fx.params, st); } catch (e) { /* effect failed: pass through */ }
+      try { def.apply(dst.x, dst.c, cur, fx.params, st, fx); } catch (e) { /* effect failed: pass through */ }
       cur = dst.c;
     }
     return cur;
@@ -59,7 +61,7 @@
   });
 
   FX.register({
-    id: 'blur', name: 'Gaussian Blur', cat: 'Blur',
+    id: 'blur', name: 'Two Pass Blur', cat: 'Blur',
     params: [P.num('radius', 'Radius', 0, 80, .5, 8), P.num('quality', 'Quality', 1, 3, 1, 1)],
     apply(x, dst, src, p) { x.filter = `blur(${p.radius}px)`; x.drawImage(src, 0, 0); x.filter = 'none'; }
   });
@@ -87,7 +89,7 @@
   });
 
   FX.register({
-    id: 'radialblur', name: 'Radial (Zoom) Blur', cat: 'Blur',
+    id: 'radialblur', name: 'Zoom Blur', cat: 'Blur',
     params: [P.num('amount', 'Amount', 0, 0.4, .005, .08), P.num('steps', 'Steps', 2, 24, 1, 10), P.num('cx', 'Center X', 0, 1, .01, .5), P.num('cy', 'Center Y', 0, 1, .01, .5)],
     apply(x, dst, src, p) {
       const w = src.width, h = src.height, n = Math.round(p.steps);
@@ -102,7 +104,7 @@
   });
 
   FX.register({
-    id: 'channelshift', name: 'Channel Shift (RGB split)', cat: 'Stylize',
+    id: 'channelshift', name: 'Chroma Shift', cat: 'Stylize',
     params: [P.num('offsetX', 'Offset X', -60, 60, 1, 6), P.num('offsetY', 'Offset Y', -60, 60, 1, 0), P.sel('mode', 'Blend', [['screen', 'Screen'], ['lighter', 'Add']], 'screen')],
     apply(x, dst, src, p) {
       const w = src.width, h = src.height;
@@ -224,7 +226,7 @@
   });
 
   FX.register({
-    id: 'shadow', name: 'Drop Shadow', cat: 'Light',
+    id: 'shadow', name: 'Simple Shadow', cat: 'Light',
     params: [P.num('offsetX', 'Offset X', -100, 100, 1, 0, { auto: true }), P.num('offsetY', 'Offset Y', -100, 100, 1, 12), P.num('blur', 'Blur', 0, 100, 1, 20), P.color('color', 'Color', '#000000'), P.num('alpha', 'Opacity', 0, 1, .01, .6)],
     apply(x, dst, src, p) {
       const w = src.width, h = src.height;

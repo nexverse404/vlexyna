@@ -1,5 +1,6 @@
 /* Vlexyna — layers.js — layer type registry + visual layers */
 'use strict';
+import { VX, U } from './util.js';
 (() => {
   const P = VX.P;
   const L = VX.layers = { list: [], byId: {}, order: [] };

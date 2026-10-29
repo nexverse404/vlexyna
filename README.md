@@ -1,84 +1,68 @@
 # Vlexyna Studio
 
-**A free, unlimited, audio-reactive music video maker — a complete, enhanced alternative to [vizzy.io](https://vizzy.io), running 100% in your browser.**
+**A free, unlimited, audio-reactive music video studio.** A complete, enhanced
+alternative to vizzy.io — running fully local in a Tauri 2 desktop app (and any
+modern browser), with no accounts, no watermark and no uploads.
 
-No account. No watermark. No uploads. Everything renders locally on your machine.
+Built with **Tauri 2 + Vite + Vue 3**, on top of a zero-dependency
+Canvas2D/WebGL engine that ships as plain ES modules.
 
-![Vlexyna](https://img.shields.io/badge/status-ready-22d3ee) ![tests](https://img.shields.io/badge/smoke%20tests-83%2F83-34d399) ![license](https://img.shields.io/badge/license/MIT-7c5cff)
+![stack](https://img.shields.io/badge/Tauri-2-blueviolet) ![vue](https://img.shields.io/badge/Vue-3-42b883) ![effects](https://img.shields.io/badge/effects-64-7c6cf0) ![layers](https://img.shields.io/badge/layer%20types-20-22d3ee)
 
 ## Run it
 
 ```bash
-# any static file server, e.g.
-python3 -m http.server 8080
-# then open http://localhost:8080
+npm install
+
+# desktop app (needs Rust: https://rustup.rs)
+npm run tauri dev      # develop with hot reload in the native window
+npm run tauri build    # installers for your OS (msi/nsis, dmg/app, deb/appimage)
+
+# or just the web app — everything works in a browser too
+npm run dev            # http://localhost:1420
+npm run build          # static build → dist/
 ```
 
-No build step, no dependencies, no network calls at runtime (fonts fall back gracefully offline).
+The legacy no-build web app still lives in `web/` (open `web/index.html`
+through any static server rooted at the repo root).
 
-## Feature tour
+## What it does
 
-### Layers (17 types, unlimited count, drag-to-reorder)
-| Category | Layers |
+| | |
 |---|---|
-| Background | Background (color / gradient / image), Aurora/Plasma field |
-| Visuals | Spectrum (bars, mirror, radial, LED blocks, dots), Audio Wave (line, fill, mirror, circle, dual-circle), Particles, Starfield/Warp, Tunnel, Beat Rings |
-| Media | Image (circle mask, bass pulse, spin, bob), Video (rate control, synced to transport) |
-| Text | Text (gradients, strokes, 7 animations incl. typewriter), **Lyrics** (LRC/TTML import, tap-sync editor, karaoke sweep, pop/fade/slide/zoom styles) |
-| Decor | Confetti, Bokeh Orbs, Perspective Grid (synthwave sun), Progress Bar (song-aware), Shape |
+| **64 effects** | the full vizzy.io set — blur family (two-pass, box, directional, zoom, triangular, bokeh, tilt-shift, channel, h/v), light (glow, bloom, streaks, god rays), color (grade, tint, chroma shift, gradient map, chroma key, CAS, flicker), warp (bulge, fisheye ×2, twirl, polar, kaleidoscope, ripple, impact ripple, liquify, displacement, glitch), stylize (VHS ×2, spooky, scanlines, grain, edge, pixelate, outline + advanced, shadows, distance field, morphing fractal), temporal (time stop, trail, render layer), and more — every one Canvas2D-fast and stackable per layer **and** as global post FX |
+| **20 layer types** | spectrum (bars/radial/wave/LED…), waveform, plasma/aurora, particles, 3D particles, starfield, tunnel, beat rings, bokeh orbs, confetti, perspective grid, shapes, **GLSL shader layer** (write your own fragment shaders with audio uniforms + 5 presets), spherical field, image, video, text, lyrics, progress bar, background |
+| **Audio reactivity** | bass / mid / treble / level / beat detection, live mic mode, demo beat synthesized in-browser, wave + spectrum data available to layers, shaders *and* automations (`beat*0.3`, `fft(80,200)`, `freq(0)`, `sin(t*2)*.2` — bind any slider with the **ƒ** button) |
+| **Lyrics** | LRC / TTML import, karaoke sweep + 4 more line styles, tap-sync time stamping |
+| **Timeline** | drag clips to move, edges to trim, snap, per-layer lanes, waveform + ruler |
+| **Projects** | autosaved locally, multi-project browser, undo/redo, `.vlx` project import/export |
+| **Export** | real-time WebM/MP4 recording with audio, any canvas size up to 8K, PNG frame grabs |
+| **Design** | taste-skill house style — Space Grotesk + IBM Plex Mono, one accent, flat surfaces, honest empty states |
 
-Every layer has: position / scale / rotation / opacity / blend mode (14 modes) / mirror (H/V/quad) / a time span on the timeline / an audio-reactivity setup / its own effect stack.
-
-### Effects (16, stackable per layer, plus global post-FX)
-Glow · Gaussian Blur · Box Blur · Directional (motion) Blur · Radial (zoom) Blur · Channel Shift (RGB split) · Vignette · Edge Detection · Pixelate · Film Grain · Scanlines (CRT) · Color Correct · Gradient Map · Drop Shadow · Skew · Mirror.
-
-### Audio reactivity + math automations
-- Bind **any** property (transform or per-layer parameter) to **bass / mids / treble / overall level / beat pulse** with an amount slider.
-- Or drive it with an **expression**: `sin(t*2)*40 + bass*90 + clamp(v1,0,10)` — with `t`, `dt`, band values, beat, global variables `v1–v4` and ~25 functions.
-- Beat detection runs on live bass energy with attack/release envelopes per band.
-
-### Timeline
-Waveform audio track, per-layer tracks with draggable / trimmable time spans, zoomable ruler with snapping, playhead scrubbing, lyric-aware editing.
-
-### Export (all local)
-- **Video** — MP4 (H.264) where supported, WebM (VP9/Opus) otherwise; up to **8K** (vizzy caps at 4K), 30/60 fps, four bitrate tiers, optional audio, real-time recording with progress + cancel.
-- **PNG frame** snapshot at full resolution.
-- **PNG sequence** → ZIP for external encoding pipelines.
-- **`.vlx` project files** — JSON with embedded image/video assets, import & export.
-
-### Projects & templates
-- 16 built-in templates (Trap Nation, Synthdrive, Lyric Focus, Glitch VHS, …).
-- Unlimited named projects autosaved to browser storage, with a project manager.
-- **Synthesized demo track** — generates a full beat (kick, snare, hats, bass, pads, arps, risers) via WebAudio offline rendering, so you can try everything with zero files.
-
-### Extras vizzy doesn't have
-- **Live mic mode** — visuals react to your microphone for live sets (press `M`).
-- Keyboard-first workflow (`Space`, `Ctrl+Z`, arrows-nudge, `F` fullscreen presentation, …).
-- Drop **anything** anywhere: audio, images, videos, `.lrc`/`.ttml` lyrics, `.vlx` projects.
-- Beat indicator, FPS meter, preview quality scaling for weak machines, visible error reporting.
-
-## Tech
-
-Vanilla JS + Canvas 2D, WebAudio API, MediaRecorder. ~5,500 lines, zero dependencies, zero build. Deterministic seeds keep randomized layers stable across renders.
+## Repository layout
 
 ```
-js/util.js       helpers, icons, zip writer, toasts
-js/expr.js       safe math expression evaluator
-js/audio.js      playback, FFT bands, beat detection, demo synth
-js/fx.js         effect stack engine
-js/layers.js     visual layer types
-js/media.js      image/video/text/lyrics/progress + asset store
-js/renderer.js   composition pipeline + preview loop
-js/project.js    model, undo/redo, persistence
-js/templates.js  template gallery
-js/exporter.js   video / PNG / frame-sequence export
-js/ui.js         studio interface
-test/smoke.js    headless jsdom test harness (83 assertions)
+engine/       the studio engine — plain ESM, zero deps (fx, fx2, layers, layers2,
+              renderer, audio, expr, params, media, project, templates, exporter)
+src/          Vue 3 app (components, store, app controller, design system)
+src-tauri/    Tauri 2 shell (thin Rust wrapper, icons generated by npm run icons)
+web/          legacy no-build web app (same engine)
+test/         smoke.js (135 checks) · boot.js (built-app mount test) · render.js (visual QA)
 ```
 
-## Test
+## Tests
 
 ```bash
-npm install jsdom   # test-only dependency
-node test/smoke.js
+npm test              # headless smoke: all layers, all 64 fx, all templates,
+                      # expressions, lyrics, undo, persistence, exporter
+npm run build && npm run test:boot   # mounts the real built app in jsdom
+npm run test:render   # renders every template + fx grid to test/out/*.png
 ```
+
+## License & credits
+
+Engine code is original (Canvas2D/JS). Effect inspiration and prior art credited
+to the vizzy.io open-source page: Butterchurn (jberg, MIT), Seriously.js,
+otdavies, AMD FidelityFX CAS, bluemir, staffantan (CC-BY), Julien
+Moreau-Mathis, Cubiq, clara, blaze33, stegu webgl-noise, halvves,
+UltraMoogleMan/Ryan Holtz/ImJezze (BSD-3), and PixiJS.

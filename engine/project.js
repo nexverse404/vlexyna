@@ -1,5 +1,6 @@
 /* Vlexyna — project.js — project model, undo/redo, persistence */
 'use strict';
+import { VX, U } from './util.js';
 (() => {
   const PR = VX.project = {};
   const LS_KEY = 'vlexyna_projects_v1';

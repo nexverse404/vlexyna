@@ -1,5 +1,6 @@
 /* Vlexyna — audio.js — playback, analysis, beat detection, mic, demo track synth */
 'use strict';
+import { VX, U } from './util.js';
 (() => {
   const A = VX.audio = {};
 
