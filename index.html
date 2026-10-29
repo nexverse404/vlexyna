@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vlexyna Studio — Music Visualizer &amp; Music Video Maker</title>
+<meta name="description" content="Vlexyna — free, unlimited audio-reactive music video studio in your browser. Spectrum, particles, lyrics, effects, 4K+ export. No watermark, no uploads.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='1' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%2322d3ee'/%3E%3Cstop offset='1' stop-color='%237c5cff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='7' fill='%230b0d14'/%3E%3Cpath d='M6 24V14M12 24V7M18 24v-9M24 24V10' stroke='url(%23g)' stroke-width='3.4' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<noscript><div style="color:#fff;padding:40px;font-family:sans-serif">Vlexyna needs JavaScript enabled.</div></noscript>
+
+<div id="app">
+  <!-- ══════════ TOP BAR ══════════ -->
+  <header id="topbar">
+    <div class="logo" title="Vlexyna Studio">
+      <svg viewBox="0 0 32 32" width="22" height="22"><defs><linearGradient id="lg1" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#7c5cff"/></linearGradient></defs><path d="M5 25V15M11 25V6M17 25v-11M23 25V9M28 25v-7" stroke="url(#lg1)" stroke-width="3" stroke-linecap="round" fill="none"/></svg>
+      <span class="logo-t">VLEXYNA</span><span class="logo-s">studio</span>
+    </div>
+    <input id="projName" class="proj-name" value="Untitled" spellcheck="false" title="Project name">
+    <div class="top-group">
+      <select id="sizeSel" title="Canvas size">
+        <option value="1920x1080">1920 × 1080 — 16:9</option>
+        <option value="1280x720">1280 × 720 — 16:9</option>
+        <option value="2560x1440">2560 × 1440 — QHD</option>
+        <option value="3840x2160">3840 × 2160 — 4K</option>
+        <option value="1080x1920">1080 × 1920 — 9:16</option>
+        <option value="1080x1080">1080 × 1080 — 1:1</option>
+        <option value="1080x1350">1080 × 1350 — 4:5</option>
+        <option value="custom">Custom…</option>
+      </select>
+      <select id="fpsSel" title="Frame rate">
+        <option value="24">24 fps</option>
+        <option value="30">30 fps</option>
+        <option value="60" selected>60 fps</option>
+      </select>
+      <select id="qualSel" title="Preview quality (renders faster at lower quality)">
+        <option value="360">Preview 360p</option>
+        <option value="480">Preview 480p</option>
+        <option value="720" selected>Preview 720p</option>
+        <option value="1080">Preview 1080p</option>
+        <option value="0">Preview full</option>
+      </select>
+    </div>
+    <div class="top-group">
+      <button class="ib" id="undoBtn" title="Undo (Ctrl+Z)"></button>
+      <button class="ib" id="redoBtn" title="Redo (Ctrl+Shift+Z)"></button>
+    </div>
+    <div class="spacer"></div>
+    <span id="fpsMeter" title="Preview render rate">— fps</span>
+    <span id="savedDot" title="Autosaved to this browser"></span>
+    <button class="tb" id="tplBtn" title="Templates (T)"><span class="ic"></span>Templates</button>
+    <button class="tb" id="projBtn" title="Projects"><span class="ic"></span>Projects</button>
+    <button class="tb" id="snapBtn" title="Save current frame as PNG (P)"><span class="ic"></span>PNG</button>
+    <button class="tb icon-only" id="fsBtn" title="Fullscreen preview (F)"><span class="ic"></span></button>
+    <button class="tb icon-only" id="helpBtn" title="Help &amp; shortcuts (?)"><span class="ic"></span></button>
+    <button class="tb primary" id="exportBtn" title="Export video (E)"><span class="ic"></span>Export video</button>
+  </header>
+
+  <!-- ══════════ LEFT: LAYERS ══════════ -->
+  <aside id="left">
+    <div class="panel-h">
+      <span>Layers</span>
+      <button class="btn small" id="addLayerBtn"><span class="ic"></span>Add layer</button>
+    </div>
+    <div id="layerList"></div>
+  </aside>
+
+  <!-- ══════════ CENTER: STAGE ══════════ -->
+  <main id="center">
+    <div id="stage">
+      <div id="stageInner">
+        <canvas id="preview"></canvas>
+        <div id="overlay"></div>
+      </div>
+      <div id="exportBadge" style="display:none">● RECORDING</div>
+    </div>
+    <div id="transport">
+      <button id="playBtn" class="playbtn" title="Play / pause (Space)"></button>
+      <span id="timeCur" class="mono">00:00.00</span>
+      <input id="seek" type="range" min="0" max="1000" value="0" step="1" title="Seek">
+      <span id="timeTotal" class="mono">00:00.00</span>
+      <span id="beatDot" title="Beat detector"></span>
+      <button class="tb icon-only" id="loopBtn" title="Loop (L)"><span class="ic"></span></button>
+      <div class="vol-wrap">
+        <button class="tb icon-only" id="muteBtn" title="Mute monitor"><span class="ic"></span></button>
+        <input id="volSlider" type="range" min="0" max="100" value="90" title="Monitor volume">
+      </div>
+      <button class="tb icon-only" id="micBtn" title="Live microphone mode (M) — visuals react to mic input"><span class="ic"></span></button>
+      <div class="audio-info">
+        <button class="btn small" id="demoBtn" title="Synthesize a demo track right in your browser"><span class="ic"></span>Demo beat</button>
+        <button class="btn small" id="loadAudioBtn"><span class="ic"></span>Load audio</button>
+        <span id="audioName" title="">No audio loaded</span>
+      </div>
+    </div>
+  </main>
+
+  <!-- ══════════ RIGHT: INSPECTOR ══════════ -->
+  <aside id="right">
+    <div class="tabs">
+      <button id="tabProps" class="on">Properties</button>
+      <button id="tabAuto">Reactivity</button>
+      <button id="tabFx">Effects</button>
+    </div>
+    <div id="inspector"></div>
+  </aside>
+
+  <!-- ══════════ BOTTOM: TIMELINE ══════════ -->
+  <footer id="timeline">
+    <div class="tl-head">
+      <span class="tl-title">Timeline</span>
+      <button class="ib" id="tlZoomOut" title="Zoom out">−</button>
+      <button class="ib" id="tlZoomIn" title="Zoom in">+</button>
+      <button class="tb small" id="tlSnap" title="Snap to ¼ second">Snap</button>
+      <span class="tl-hint">drag bars to shift · drag edges to trim · click the ruler to seek</span>
+    </div>
+    <div id="tlScroll">
+      <div id="tlContent">
+        <canvas id="tlRuler"></canvas>
+        <div id="tlRows"></div>
+        <div id="playhead"><div class="ph-cap"></div></div>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<script src="js/util.js"></script>
+<script src="js/params.js"></script>
+<script src="js/expr.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/layers.js"></script>
+<script src="js/media.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/project.js"></script>
+<script src="js/templates.js"></script>
+<script src="js/exporter.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

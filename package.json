@@ -1,0 +1,16 @@
+{
+  "name": "vlexyna-studio",
+  "version": "1.0.0",
+  "description": "Vlexyna Studio — free, unlimited, audio-reactive music video maker in the browser (vizzy.io alternative). Zero runtime dependencies.",
+  "private": true,
+  "scripts": {
+    "start": "python3 -m http.server 8080",
+    "test": "node test/smoke.js"
+  },
+  "devDependencies": {
+    "jsdom": "^24.0.0"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^1.0.13"
+  }
+}
