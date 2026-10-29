@@ -1,6 +1,6 @@
-/* Vlexyna — Tauri 2 app entry.
-   The entire studio is the web app in ../dist (built by Vite); the Rust side
-   stays a thin, auditable shell: one window, no network calls, no plugins. */
+// Vlexyna — Tauri 2 app entry.
+// The entire studio is the web app in ../dist (built by Vite); the Rust side
+// stays a thin, auditable shell: one window, no network calls, no plugins.
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
