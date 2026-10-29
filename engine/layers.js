@@ -19,6 +19,13 @@ import { VX, U } from './util.js';
   const FONT_STACK = "'Inter', 'Segoe UI', system-ui, sans-serif";
   L.fmtFont = (p, px) => `${p.italic ? 'italic ' : ''}${p.weight} ${px}px ${p.font || FONT_STACK}`;
   L.fonts = [['', 'Default Sans'], ['Arial, Helvetica, sans-serif', 'Arial'], ['Helvetica, Arial, sans-serif', 'Helvetica'], ['Georgia, serif', 'Georgia'], ["'Times New Roman', Times, serif", 'Times'], ["'Courier New', monospace", 'Courier'], ['Impact, Charcoal, sans-serif', 'Impact'], ["'Arial Black', Gadget, sans-serif', 'Arial Black"], ['Verdana, Geneva, sans-serif', 'Verdana'], ["'Trebuchet MS', sans-serif", 'Trebuchet'], ["'Comic Sans MS', cursive", 'Comic Sans'], ['Palatino, \'Palatino Linotype\', serif', 'Palatino']];
+  /* fonts uploaded by the user — merged into every font picker at render time */
+  L.customFonts = [];
+  L.fontOptions = () => L.fonts.concat(L.customFonts.map(f => [f.css, f.label]));
+  L.registerFontCss = (label, css) => {
+    if (!L.customFonts.some(f => f.css === css)) L.customFonts.push({ label, css });
+    VX.ui && VX.ui.refreshAll && VX.ui.refreshAll();
+  };
 
   const lg = (x, w, c1, c2) => { const g = x.createLinearGradient(-w / 2, 0, w / 2, 0); g.addColorStop(0, c1); g.addColorStop(1, c2); return g; };
 

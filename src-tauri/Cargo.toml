@@ -1,6 +1,6 @@
 [package]
 name = "vlexyna"
-version = "2.1.0"
+version = "2.2.0"
 description = "Vlexyna Studio — free, unlimited, audio-reactive music video studio"
 authors = ["Vlexyna"]
 edition = "2021"

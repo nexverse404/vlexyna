@@ -13,6 +13,7 @@ import { VX, U } from './util.js';
       this.freq = new Uint8Array(1024); this.wave = new Float32Array(2048);
       this.bands = { bass: 0, mid: 0, treble: 0, level: 0 };
       this.raw = { bass: 0, mid: 0, treble: 0, level: 0 };
+      this.gains = { bass: 1, mid: 1, treble: 1, level: 1, beat: 1 };  /* reactivity mixer */
       this.beat = 0; this.beatCount = 0; this._lastBeat = -9; this._hist = [];
       this.peaks = null; this.mic = null; this.micStream = null;
       this.onstate = null; this.onended = null;
@@ -226,7 +227,7 @@ import { VX, U } from './util.js';
       } else { r.bass *= .92; r.mid *= .92; r.treble *= .92; r.level *= .92; }
       const atk = 1 - Math.pow(.001, dt), rel = 1 - Math.pow(.03, dt);
       for (const k of ['bass', 'mid', 'treble', 'level']) {
-        const cur = this.bands[k], target = r[k];
+        const cur = this.bands[k], target = r[k] * (this.gains ? this.gains[k] : 1);
         this.bands[k] = target > cur ? cur + (target - cur) * Math.min(1, atk * 1.4) : cur + (target - cur) * Math.min(1, rel * 1.2);
       }
       /* beat detection on bass energy */
@@ -236,7 +237,7 @@ import { VX, U } from './util.js';
         const t = this.ctx.currentTime;
         if (r.bass > avg * 1.32 && r.bass > 0.1 && t - this._lastBeat > 0.16) { this._lastBeat = t; this.beatCount++; this.beat = 1; }
       }
-      this.beat *= Math.pow(0.0005, dt);
+      this.beat = Math.min(1, this.beat * Math.pow(0.0005, dt) * (this.gains ? this.gains.beat : 1));
     }
   }
   A.AudioEngine = AudioEngine;

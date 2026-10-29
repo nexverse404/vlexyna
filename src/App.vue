@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { S, closeMenu, closeModal, toast, openModal } from './store.js';
-import { handleDrop } from './appctl.js';
+import { handleDrop, copyLayer, cutLayer, pasteLayer, splitLayerAt } from './appctl.js';
 import { U } from '../engine/util.js';
 import TopBar from './components/TopBar.vue';
 import LayerPanel from './components/LayerPanel.vue';
@@ -46,6 +46,9 @@ function onKey(e) {
   if (meta && e.key.toLowerCase() === 'y') { e.preventDefault(); VX.project.redo(); return; }
   if (meta && e.key.toLowerCase() === 'd') { e.preventDefault(); if (S.sel) dupLayer(); return; }
   if (meta && e.key.toLowerCase() === 's') { e.preventDefault(); VX.project.saveNow(); toast('Project saved'); return; }
+  if (meta && e.key.toLowerCase() === 'c') { e.preventDefault(); if (S.sel) copyLayer(VX.project.current.layers.find(x => x.id === S.sel)); return; }
+  if (meta && e.key.toLowerCase() === 'x') { e.preventDefault(); if (S.sel) cutLayer(VX.project.current.layers.find(x => x.id === S.sel)); return; }
+  if (meta && e.key.toLowerCase() === 'v') { e.preventDefault(); pasteLayer(); return; }
   if (S.exporting) return;
   switch (e.key) {
     case ' ': e.preventDefault(); VX.audio.engine.resume().then(() => VX.app.togglePlay()); break;
@@ -63,6 +66,13 @@ function onKey(e) {
     case 't': case 'T': openModal('templates'); break;
     case 'm': case 'M': toggleMic(); break;
     case 'l': case 'L': VX.app.loop = !VX.app.loop; VX.audio.engine.setLoop(VX.app.loop); toast(VX.app.loop ? 'Loop on' : 'Loop off'); break;
+    case 's': case 'S': {
+      const l = VX.project.current.layers.find(x => x.id === S.sel);
+      if (l && splitLayerAt(l, S.time)) toast('Layer split at playhead');
+      else if (l) toast('Playhead is outside this layer', 'warn');
+      break;
+    }
+    case 'r': case 'R': openModal('reactivity'); break;
     case '?': openModal('help'); break;
   }
 }

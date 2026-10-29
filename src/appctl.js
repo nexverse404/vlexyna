@@ -62,6 +62,11 @@ VX.project.init();
 
 export async function boot(canvas) {
   if (S.booted) return;
+  /* restore the reactivity mixer */
+  try {
+    const g = JSON.parse(localStorage.getItem('vlexyna_reactivity') || 'null');
+    if (g) Object.assign(VX.audio.engine.gains, g);
+  } catch (e) { }
   if (!VX.project.current.layers.length) {
     /* first run (or a genuinely empty saved project) — start from the Blank template */
     const blank = VX.templates.list.find(t => t.name === 'Blank');
@@ -113,6 +118,13 @@ export async function handleDrop(f) {
   const U = VX.util;
   if (f.name.endsWith('.vlx')) { await VX.project.importFile(f); syncAll(); return; }
   if (f.type.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|flac|aac|opus)$/i.test(f.name)) { await loadAudioFile(f); return; }
+  if (/\.(ttf|otf|woff2?|ttc)$/i.test(f.name) || (f.type || '').startsWith('font/')) {
+    const dataUrl = await U.readFile(f);
+    const id = await VX.assets.addData('font', f.name, dataUrl);
+    VX.project.autosave();
+    toast(`Font “${f.name.replace(/\.[^.]+$/, '')}” added — pick it in any text layer`);
+    return;
+  }
   if (f.type.startsWith('image/')) {
     const id = await VX.assets.addFile(f);
     const l = VX.layers.make('image'); l.props.assetId = id; l.name = f.name.slice(0, 24);
@@ -154,3 +166,47 @@ export async function handleDrop(f) {
   }
   toast('Unsupported file: ' + f.name, 'warn');
 }
+
+
+/* ── editing helpers shared by keyboard shortcuts and panels ── */
+export function splitLayerAt(l, t) {
+  const VX = S.vx;
+  if (!l || t <= (l.start || 0) + .01 || (l.end != null && t >= l.end - .01)) return false;
+  const b = JSON.parse(JSON.stringify(l, (k, v) => (k.startsWith('_') && k !== '_seed') ? undefined : v));
+  b.id = VX.util.uid(); b.name = l.name + ' B';
+  l.end = t; b.start = t;
+  const arr = VX.project.current.layers;
+  arr.splice(arr.indexOf(l) + 1, 0, b);
+  VX.project.snapshot('split layer');
+  S.rev++;
+  return true;
+}
+
+let _clip = null;
+export function copyLayer(l) {
+  if (!l) return;
+  _clip = JSON.parse(JSON.stringify(l, (k, v) => (k.startsWith('_') && k !== '_seed') ? undefined : v));
+  toast(`Copied “${l.name}”`);
+}
+export function cutLayer(l) {
+  if (!l) return;
+  copyLayer(l);
+  const VX = S.vx, arr = VX.project.current.layers;
+  arr.splice(arr.indexOf(l), 1);
+  S.sel = null;
+  VX.project.snapshot('cut layer');
+  S.rev++;
+  toast(`Cut “${l.name}”`);
+}
+export function pasteLayer() {
+  const VX = S.vx;
+  if (!_clip) { toast('Clipboard is empty', 'warn'); return; }
+  const l = JSON.parse(JSON.stringify(_clip, (k, v) => (k.startsWith('_') && k !== '_seed') ? undefined : v));
+  l.id = VX.util.uid(); l.name = _clip.name + ' copy';
+  l.start = S.time;                       /* paste lands at the playhead */
+  VX.project.current.layers.push(l);
+  VX.project.snapshot('paste layer');
+  S.sel = l.id; S.rev++;
+  toast(`Pasted “${l.name}”`);
+}
+export function clipboardHas() { return !!_clip; }

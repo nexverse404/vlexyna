@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue';
-import { S, closeModal, toast, confirmDlg, syncAll, fmtTime, touch } from '../store.js';
+import { ref, reactive, computed, watch, nextTick } from 'vue';
+import { S, closeModal, toast, confirmDlg, promptDlg, syncAll, fmtTime, touch } from '../store.js';
 import { loadDemo } from '../appctl.js';
 import { U } from '../../engine/util.js';
 
@@ -8,6 +8,7 @@ const M = computed(() => S.modal);
 
 /* ───────── export ───────── */
 const exp = ref({ mode: 'video', includeAudio: true, monitor: false, bitrate: 16, fps: 60 });
+const gif = ref({ width: 480, fps: 12 });
 const canAudio = computed(() => S.audio.has);
 const canOffline = computed(() => typeof window !== 'undefined' && !!window.VideoEncoder);
 function setProgress(p, label) { S.expProg = p; S.expLabel = label || ''; }
@@ -42,10 +43,35 @@ function startFrames() {
   Promise.resolve(VX.exporter.exportFrames({ fps: Math.min(exp.value.fps, 30) }))
     .finally(() => { S.exporting = false; VX.app.onExportProgress = null; syncAll(); });
 }
+function startGif() {
+  const VX = S.vx;
+  if (S.exporting) return;
+  S.exporting = true; setProgress(0, 'Analyzing audio…');
+  VX.app.onExportProgress = (p, label) => setProgress(p, typeof label === 'string' ? label : '');
+  Promise.resolve(VX.offline.exportGif({ fps: gif.value.fps, width: gif.value.width }))
+    .finally(() => { S.exporting = false; VX.app.onExportProgress = null; syncAll(); });
+}
 function cancelExport() {
   const VX = S.vx;
   if (VX.offline && VX.offline.active) VX.offline.cancel();
   else VX.exporter.cancel();
+}
+
+/* ───────── audio reactivity mixer ───────── */
+const rx = reactive({ bass: 1, mid: 1, treble: 1, level: 1, beat: 1 });
+watch(() => S.modal?.type, (t) => {
+  if (t === 'reactivity') Object.assign(rx, S.vx?.audio?.engine?.gains || rx);
+}, { immediate: true });
+function setRx(k, e) {
+  const v = +e.target.value;
+  rx[k] = v;
+  const g = S.vx?.audio?.engine?.gains;
+  if (g) g[k] = v;
+  try { localStorage.setItem('vlexyna_reactivity', JSON.stringify({ ...rx })); } catch (err) { }
+}
+function resetRx() {
+  for (const k of Object.keys(rx)) { rx[k] = 1; const g = S.vx?.audio?.engine?.gains; if (g) g[k] = 1; }
+  try { localStorage.setItem('vlexyna_reactivity', JSON.stringify({ ...rx })); } catch (err) { }
 }
 
 /* ───────── crop editor ───────── */
@@ -135,6 +161,18 @@ function resetCrop() { cropRect.value = { x: 0, y: 0, w: 1, h: 1 }; drawCrop(); 
 
 /* ───────── templates ───────── */
 const templates = computed(() => S.vx ? S.vx.templates.list : []);
+const tplRev = ref(0);
+function saveAsTemplate() {
+  const VX = S.vx;
+  promptDlg('Template name', VX.project.current.name || 'My template', (n) => {
+    VX.templates.saveCustom(n);
+    tplRev.value++;
+    toast('Saved — it stays in your template library');
+  });
+}
+function removeTemplate(t) {
+  confirmDlg(`Delete template “${t.name}”?`, () => { S.vx.templates.removeCustom(t.name); tplRev.value++; }, 'Delete');
+}
 function applyTemplate(t) { S.vx.templates.apply(t); closeModal(); S.sel = null; }
 
 /* ───────── projects ───────── */
@@ -297,13 +335,17 @@ function welcomeTemplates() { S.modal = { type: 'templates' }; }
 
         <!-- TEMPLATES -->
         <template v-else-if="M.type === 'templates'">
-          <div class="m-h"><h3>Templates</h3><button class="ib" @click="closeModal()" v-html="U.icon('close')"></button></div>
-          <div class="tpl-grid">
-            <button v-for="t in templates" :key="t.name" class="tpl" @click="applyTemplate(t)">
+          <div class="m-h"><h3>Templates</h3>
+            <button class="btn small" @click="saveAsTemplate" title="Turn the current project into a reusable template"><span v-html="U.icon('plus', 12)"></span>Save current as template</button>
+            <button class="ib" @click="closeModal()" v-html="U.icon('close')"></button>
+          </div>
+          <div class="tpl-grid" :key="tplRev">
+            <button v-for="t in templates" :key="t.name" class="tpl" :class="{ mine: t.custom }" @click="applyTemplate(t)">
               <span class="tpl-art"><span class="tpl-bars"><i v-for="i in 5" :key="i"></i></span></span>
               <span class="tpl-name">{{ t.name }}</span>
               <span class="tpl-desc">{{ t.desc }}</span>
-              <span class="tpl-n lab">{{ t.layers.length }} layers</span>
+              <span class="tpl-n lab">{{ t.layers.length }} layers<span v-if="t.custom"> · yours</span></span>
+              <span v-if="t.custom" class="tpl-del" role="button" title="Delete template" @click.stop="removeTemplate(t)" v-html="U.icon('trash', 12)"></span>
             </button>
           </div>
         </template>
@@ -344,6 +386,9 @@ function welcomeTemplates() { S.modal = { type: 'templates' }; }
               <button :class="{ on: exp.mode === 'frames' }" @click="exp.mode = 'frames'">
                 <b>PNG frames</b><span>zip sequence</span>
               </button>
+              <button :class="{ on: exp.mode === 'gif' }" :disabled="!canAudio" @click="canAudio && (exp.mode = 'gif')">
+                <b>GIF</b><span>{{ canAudio ? 'looping · social-ready' : 'needs an audio track' }}</span>
+              </button>
             </div>
             <div class="x-row"><span>Canvas</span><b class="mono">{{ S.width }} × {{ S.height }} @ {{ S.fpsProj }} fps</b></div>
             <div class="x-row"><span>Duration</span><b class="mono">{{ fmtTime(S.dur) }}</b></div>
@@ -356,15 +401,25 @@ function welcomeTemplates() { S.modal = { type: 'templates' }; }
             <div class="x-row" v-if="exp.mode !== 'frames'"><span>Bitrate</span>
               <select v-model.number="exp.bitrate"><option :value="8">8 Mbps — small</option><option :value="16">16 Mbps — balanced</option><option :value="32">32 Mbps — pristine</option></select>
             </div>
-            <div class="x-row"><span>Frame rate</span>
+            <div class="x-row" v-if="exp.mode !== 'gif'"><span>Frame rate</span>
               <select v-model.number="exp.fps"><option :value="24">24 fps</option><option :value="30">30 fps</option><option :value="60">60 fps</option></select>
             </div>
+            <template v-if="exp.mode === 'gif'">
+              <div class="x-row"><span>GIF size</span>
+                <select v-model.number="gif.width"><option :value="240">240 px wide — chat</option><option :value="360">360 px — messages</option><option :value="480">480 px — social</option><option :value="640">640 px — large</option></select>
+              </div>
+              <div class="x-row"><span>GIF frame rate</span>
+                <select v-model.number="gif.fps"><option :value="8">8 fps — small file</option><option :value="12">12 fps</option><option :value="15">15 fps</option><option :value="20">20 fps — smooth</option></select>
+              </div>
+            </template>
             <p class="hint" v-if="exp.mode === 'video'">Records in real time with your browser's native encoder — WebM in Firefox, MP4 (H.264) in Chrome where supported.</p>
             <p class="hint" v-else-if="exp.mode === 'mp4'">Encodes frame-by-frame with WebCodecs — faster than real time, every frame exact, and audio-reactivity is precomputed from the track's spectrum. Falls back to VP9/WebM if H.264 is unavailable.</p>
-            <p class="hint" v-else>Exports every frame as a PNG into a single .zip — audio-reactive, perfect for editors and gifs. Keep fps modest; frames add up quickly.</p>
+            <p class="hint" v-else-if="exp.mode === 'frames'">Exports every frame as a PNG into a single .zip — audio-reactive, perfect for editors and gifs. Keep fps modest; frames add up quickly.</p>
+            <p class="hint" v-else>Audio-reactive animated GIF, encoded right here — perfect for socials, DMs and Spotify-Canvas-style loops. Lower size/fps to keep files friendly.</p>
             <button v-if="exp.mode === 'video'" class="btn primary big wide" @click="startExport"><span v-html="U.icon('export', 15)"></span>Start recording</button>
             <button v-else-if="exp.mode === 'mp4'" class="btn primary big wide" :disabled="!canOffline" @click="startOffline"><span v-html="U.icon('export', 15)"></span>Encode offline</button>
-            <button v-else class="btn primary big wide" @click="startFrames"><span v-html="U.icon('camera', 15)"></span>Export frames</button>
+            <button v-else-if="exp.mode === 'frames'" class="btn primary big wide" @click="startFrames"><span v-html="U.icon('camera', 15)"></span>Export frames</button>
+            <button v-else class="btn primary big wide" :disabled="!canAudio" @click="startGif"><span v-html="U.icon('export', 15)"></span>Export GIF</button>
           </template>
           <template v-else>
             <div class="x-prog"><div class="x-bar" :style="{ width: (S.expProg * 100).toFixed(1) + '%' }"></div></div>
@@ -388,6 +443,21 @@ function welcomeTemplates() { S.modal = { type: 'templates' }; }
         </template>
 
         <!-- HELP -->
+        <!-- REACTIVITY MIXER -->
+        <template v-else-if="M.type === 'reactivity'">
+          <div class="m-h"><h3>Audio reactivity</h3><button class="ib" @click="closeModal()" v-html="U.icon('close')"></button></div>
+          <p class="modal-note">Global multipliers on the analysed audio — every reactive layer, automation, shader and the beat detector feels them. Tame a muddy mix, or push a quiet track harder.</p>
+          <div class="ctl" v-for="k in ['bass', 'mid', 'treble', 'level', 'beat']" :key="k">
+            <span class="ctl-l">{{ k === 'level' ? 'level (all)' : k }}</span>
+            <span class="ctl-v">
+              <input type="range" min="0" max="2" step="0.05" :value="rx[k]" @input="setRx(k, $event)">
+              <b class="mono rxv">{{ rx[k].toFixed(2) }}×</b>
+            </span>
+          </div>
+          <p class="hint">Beat gain also scales how hard beat-detection hits — above 1× fires more easily.</p>
+          <div class="btn-row end"><button class="btn" @click="resetRx">Reset to 1.00×</button></div>
+        </template>
+
         <template v-else-if="M.type === 'help'">
           <div class="m-h"><h3>Help & shortcuts</h3><button class="ib" @click="closeModal()" v-html="U.icon('close')"></button></div>
           <div class="help-cols">
@@ -399,6 +469,8 @@ function welcomeTemplates() { S.modal = { type: 'templates' }; }
               <h4>Editing</h4>
               <div class="sc"><span>Ctrl+Z / +Shift</span> undo / redo</div>
               <div class="sc"><span>Ctrl+D</span> duplicate layer</div>
+              <div class="sc"><span>Ctrl+C / X / V</span> copy / cut / paste at playhead</div>
+              <div class="sc"><span>S</span> split layer at playhead</div>
               <div class="sc"><span>Delete</span> remove layer</div>
               <div class="sc"><span>Arrows</span> nudge (Shift = 10×)</div>
               <div class="sc"><span>Dbl-click name</span> rename</div>
@@ -409,9 +481,11 @@ function welcomeTemplates() { S.modal = { type: 'templates' }; }
               <div class="sc"><span>P</span> save frame as PNG</div>
               <div class="sc"><span>E</span> export video</div>
               <div class="sc"><span>T</span> templates</div>
+              <div class="sc"><span>R</span> audio reactivity mixer</div>
+              <div class="sc"><span>Ctrl+scroll</span> zoom the stage</div>
               <div class="sc"><span>?</span> this dialog</div>
               <h4>Good to know</h4>
-              <p class="hint">Drop audio, images, video, LRC/TTML lyrics or .vlx projects anywhere. <b>ƒ</b> beside a slider binds it to the music — try <code>beat</code> or <code>bass*2</code>. Timeline clips drag to move, edges trim. Right-click layers and effects for more.</p>
+              <p class="hint">Drop audio, images, video, LRC/TTML lyrics, Lottie .json, font files (.ttf/.otf/.woff) or .vlx projects anywhere. <b>ƒ</b> beside a slider binds it to the music — try <code>beat</code> or <code>bass*2</code>. Timeline clips drag to move, edges trim. Right-click layers and effects for more.</p>
             </div>
           </div>
         </template>
@@ -525,7 +599,17 @@ function welcomeTemplates() { S.modal = { type: 'templates' }; }
 .hint b { color: var(--acc); }
 
 .x-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; color: var(--ink2); gap: 10px; }
-.x-modes { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 7px; margin-bottom: 12px; }
+.x-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 7px; margin-bottom: 12px; }
+.rxv { min-width: 44px; text-align: right; color: var(--ink2); font-size: 11px; }
+.tpl { position: relative; }
+.tpl-del {
+  position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; border-radius: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--ink3); background: rgba(10, 11, 14, .7); cursor: pointer;
+}
+.tpl-del:hover { color: var(--err); }
+.tpl.mine { border-color: rgba(124, 108, 240, .5); }
+.tpl.mine .tpl-name::after { content: ' ★'; color: var(--acc-ink); font-size: 10px; }
 .x-modes button {
   display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
   background: var(--panel); border: 1px solid var(--line); border-radius: 8px;

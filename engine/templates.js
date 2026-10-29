@@ -247,4 +247,200 @@ import { VX, U } from './util.js';
     ],
     post: [FXm('bloom', { threshold: .6, radius: 26, intensity: .8 })],
   });
+
+  /* ═══════════ genre pack — the starting points creators actually look for ═══════════ */
+
+  T.add({
+    name: 'Hip-Hop Bars', desc: 'Bold boom-bap bars, gold on black',
+    grad: ['#facc15', '#111111'],
+    layers: [
+      { type: 'background', props: { mode: 'gradient', c1: '#050505', c2: '#17130a', vign: .5 } },
+      { type: 'spectrum', y: .5, props: { mode: 'blocks', count: 42, barWidth: .85, height: .62, c1: '#facc15', c2: '#f97316', glow: 22, cap: 18, curve: .85, alphaFloor: .25 } },
+      { type: 'text', y: .12, props: { text: 'HIP-HOP', size: 7, weight: 900, c1: '#f5f0e1', letterSpacing: 22, shadowBlur: 12, anim: 'pulse', animAmt: .3 } },
+      { type: 'text', y: .9, props: { text: 'prod. by you', size: 2.2, weight: 400, c1: '#a1a1aa', letterSpacing: 8 } },
+      { type: 'progress', y: .97, props: {} },
+    ],
+    post: [FXm('grain', { amount: .07 }), FXm('vignette', { strength: .5 })],
+  });
+
+  T.add({
+    name: 'Lo-Fi Study', desc: 'Warm tape loop for chilled beats',
+    grad: ['#fbbf24', '#78350f'],
+    layers: [
+      { type: 'background', props: { mode: 'gradient', c1: '#1c1410', c2: '#2e2018', angle: 120, vign: .35 } },
+      { type: 'plasma', props: { c1: '#78350f', c2: '#b45309', c3: '#166534', style: 'aurora', scale: 1.6, speed: .12, mix: .35, react: .3 } },
+      { type: 'spectrum', y: .84, props: { mode: 'bars', count: 56, barWidth: .55, height: .16, c1: '#fbbf24', c2: '#f59e0b', glow: 12, curve: .9, alphaFloor: .2 } },
+      { type: 'text', y: .2, props: { text: 'lo-fi beats', size: 4.4, weight: 600, c1: '#fde68a', letterSpacing: 10, shadowBlur: 18, anim: 'float', animAmt: .3 } },
+      { type: 'lyrics', name: 'Lyrics', y: .58, props: { size: 4, c1: '#e7e5e4', style: 'fade', showNext: true, shadowBlur: 14 } },
+    ],
+    post: [FXm('grain', { amount: .12 }), FXm('scanlines', { intensity: .12 }), FXm('gradmap', { shadow: '#0c0a09', mid: '#a16207', high: '#fef3c7', mix: .22 })],
+  });
+
+  T.add({
+    name: 'DnB Rush', desc: 'High-speed tunnel, acid green',
+    grad: ['#a3e635', '#052e16'],
+    layers: [
+      { type: 'background', props: { mode: 'color', color: '#020403', vign: .6 } },
+      { type: 'tunnel', props: { speed: 3.2, c1: '#a3e635', c2: '#065f46', glow: 20, rings: 26 } },
+      { type: 'spectrum', y: .5, props: { mode: 'radial', count: 96, radius: .2, height: .24, barWidth: .4, c1: '#a3e635', c2: '#22d3ee', glow: 24, curve: .75, alphaFloor: .3 }, auto: { spin: { src: 'level', amt: .35 } } },
+      { type: 'text', y: .86, props: { text: 'DNB RUSH', size: 4, weight: 800, c1: '#ecfccb', letterSpacing: 16, shadowBlur: 20, anim: 'pulse', animAmt: .5 } },
+    ],
+    post: [FXm('bloom', { threshold: .55, radius: 22, intensity: .7 })],
+  });
+
+  T.add({
+    name: 'Metal Storm', desc: 'Crimson glitch assault',
+    grad: ['#ef4444', '#0a0a0a'],
+    layers: [
+      { type: 'background', props: { mode: 'gradient', c1: '#0a0505', c2: '#1c0808', vign: .6 } },
+      { type: 'particles', props: { count: 140, size: 3, c1: '#ef4444', c2: '#f97316', speed: 140, glow: 10, twinkle: .2, beatBurst: .9 } },
+      { type: 'spectrum', y: .5, props: { mode: 'mirror', count: 64, barWidth: .3, height: .7, c1: '#ef4444', c2: '#7f1d1d', glow: 26, curve: .8, alphaFloor: .2 } },
+      { type: 'text', y: .14, props: { text: 'METAL', size: 9, weight: 900, c1: '#fecaca', letterSpacing: 26, shadowBlur: 30, anim: 'shake', animAmt: .35 } },
+    ],
+    post: [FXm('channelshift', { amount: .004 }), FXm('grain', { amount: .1 }), FXm('vignette', { strength: .55 })],
+  });
+
+  T.add({
+    name: 'Jazz Club', desc: 'Late-night amber and velvet',
+    grad: ['#f59e0b', '#312e81'],
+    layers: [
+      { type: 'background', props: { mode: 'gradient', c1: '#100e1d', c2: '#1e1533', angle: 60, vign: .5 } },
+      { type: 'orbs', props: { count: 14, c1: '#f59e0b', c2: '#a78bfa', c3: '#fbbf24', alpha: .3, speed: 5, bassSwell: .6 } },
+      { type: 'wave', y: .68, props: { style: 'line', amplitude: .07, c1: '#fde68a', c2: '#f59e0b', thickness: 3, glow: 18 } },
+      { type: 'spectrum', y: .68, props: { mode: 'bars', count: 36, barWidth: .35, height: .12, c1: '#a78bfa', c2: '#c4b5fd', glow: 10, curve: .95, alphaFloor: .25 } },
+      { type: 'text', y: .3, props: { text: 'Blue Room', size: 6, weight: 600, c1: '#f5e6c8', letterSpacing: 4, shadowBlur: 26, anim: 'float', animAmt: .2, italic: true } },
+      { type: 'text', y: .4, props: { text: 'live at midnight', size: 2, weight: 400, c1: '#a78bfa', letterSpacing: 12 } },
+    ],
+    post: [FXm('vignette', { strength: .6 }), FXm('grain', { amount: .06 })],
+  });
+
+  T.add({
+    name: 'Ambient Drift', desc: 'Weightless pads, breathing light',
+    grad: ['#67e8f9', '#818cf8'],
+    layers: [
+      { type: 'background', props: { mode: 'gradient', c1: '#060913', c2: '#0d1330', angle: 200, vign: .3 } },
+      { type: 'plasma', props: { c1: '#1e3a8a', c2: '#0e7490', c3: '#6d28d9', style: 'sweep', scale: 1.2, speed: .08, mix: .6, react: .35 } },
+      { type: 'orbs', props: { count: 9, c1: '#67e8f9', c2: '#818cf8', c3: '#c4b5fd', alpha: .22, speed: 3, bassSwell: .4 } },
+      { type: 'wave', y: .6, props: { style: 'fill', amplitude: .05, c1: '#67e8f9', c2: '#312e81', thickness: 2, glow: 14 } },
+      { type: 'progress', y: .96, props: {} },
+    ],
+    post: [FXm('bloom', { threshold: .7, radius: 30, intensity: .5 })],
+  });
+
+  T.add({
+    name: 'Podcast Pro', desc: 'Clean talk-show waveform card',
+    grad: ['#e2e8f0', '#334155'],
+    layers: [
+      { type: 'background', props: { mode: 'gradient', c1: '#111726', c2: '#1c2436', angle: 90, vign: .18 } },
+      { type: 'shape', y: .5, props: { shape: 'rect', w: .62, h: .5, corner: .1, fill: '#0d1220ee', stroke: '#2c3a55', strokeWidth: 2, glow: 0 } },
+      { type: 'wave', y: .52, props: { style: 'line', amplitude: .09, c1: '#94a3b8', c2: '#e2e8f0', thickness: 3, glow: 6 } },
+      { type: 'text', y: .35, props: { text: 'EPISODE 042', size: 2.4, weight: 700, c1: '#e2e8f0', letterSpacing: 14 } },
+      { type: 'text', y: .66, props: { text: 'The Craft of Sound', size: 3.2, weight: 600, c1: '#7dd3fc', letterSpacing: 2, shadowBlur: 10 } },
+      { type: 'progress', y: .72, props: {} },
+    ],
+    post: [],
+  });
+
+  T.add({
+    name: 'Dubstep Drop', desc: 'LED wall and impact shockwaves',
+    grad: ['#22d3ee', '#e11d48'],
+    layers: [
+      { type: 'background', props: { mode: 'color', color: '#04050a', vign: .55 } },
+      { type: 'spectrum', y: .5, props: { mode: 'blocks', count: 64, barWidth: .95, height: .55, c1: '#22d3ee', c2: '#e11d48', glow: 28, cap: 14, curve: .7, alphaFloor: .18 }, auto: { height: { src: 'beat', amt: .15 } } },
+      { type: 'rings', props: { speed: 900, c1: '#22d3ee', c2: '#e11d48', thickness: 9, glow: 26, maxRings: 8 } },
+      { type: 'text', y: .1, props: { text: 'DROP IT', size: 6.5, weight: 900, c1: '#fff', letterSpacing: 18, shadowBlur: 34, anim: 'pulse', animAmt: .8 } },
+    ],
+    post: [FXm('bloom', { threshold: .5, radius: 26, intensity: .9 }), FXm('vignette', { strength: .45 })],
+  });
+
+  T.add({
+    name: 'Cinematic Trailer', desc: 'Slow push, god rays, tracking titles',
+    grad: ['#cbd5e1', '#0f172a'],
+    layers: [
+      { type: 'background', props: { mode: 'gradient', c1: '#05070c', c2: '#101726', angle: 160, vign: .65 } },
+      { type: 'starfield', props: { count: 190, speed: 14, warp: .4, c1: '#64748b', c2: '#e2e8f0', glow: 6 } },
+      { type: 'grid', props: { horizon: .82, lines: 8, vlines: 9, speed: .4, lineColor: '#1e293b', lineWidth: 1.4, glow: 4, sun: false, bg: true, bgColor: '#070a12', beatZoom: .15 } },
+      { type: 'text', y: .42, props: { text: 'IN A WORLD OF SOUND', size: 3.4, weight: 300, c1: '#cbd5e1', letterSpacing: 30, anim: 'float', animAmt: .12 } },
+      { type: 'text', y: .55, props: { text: 'VLEXYNA', size: 8, weight: 900, gradient: true, c1: '#e2e8f0', c2: '#7dd3fc', letterSpacing: 24, shadowBlur: 26 } },
+    ],
+    post: [FXm('vignette', { strength: .7 }), FXm('grain', { amount: .05 })],
+  });
+
+  T.add({
+    name: 'K-Pop Sparkle', desc: 'Confetti pink, cyan ring energy',
+    grad: ['#f472b6', '#22d3ee'],
+    layers: [
+      { type: 'background', props: { mode: 'gradient', c1: '#180d1c', c2: '#0d1b2e', angle: 45, vign: .35 } },
+      { type: 'confetti', props: { count: 120, size: 9, gravity: 150, flutter: 3, spin: 6, c1: '#f472b6', c2: '#22d3ee', c3: '#fde047', c4: '#a78bfa', c5: '#f9a8d4', beatBurst: 1.1, shape: 'mix' } },
+      { type: 'spectrum', y: .5, props: { mode: 'radial', count: 110, radius: .24, height: .2, barWidth: .45, c1: '#f472b6', c2: '#22d3ee', glow: 26, curve: .8, alphaFloor: .3, rounded: true } },
+      { type: 'image', name: 'Cover art', props: { size: .34, circle: true, pulse: .16, shadow: 36 } },
+      { type: 'text', y: .88, props: { text: 'SHINE ON', size: 4.6, weight: 800, gradient: true, c1: '#f9a8d4', c2: '#22d3ee', letterSpacing: 14, shadowBlur: 28, anim: 'pulse', animAmt: .5 } },
+    ],
+    post: [FXm('bloom', { threshold: .62, radius: 24, intensity: .75 })],
+  });
+
+  T.add({
+    name: 'Reggaeton Heat', desc: 'Neon tropics, big cover pulse',
+    grad: ['#fb923c', '#ec4899'],
+    layers: [
+      { type: 'background', props: { mode: 'gradient', c1: '#1a0b2e', c2: '#3b0d2f', angle: 135, vign: .45 } },
+      { type: 'orbs', props: { count: 12, c1: '#fb923c', c2: '#ec4899', c3: '#fbbf24', alpha: .3, speed: 9, bassSwell: .9 } },
+      { type: 'rings', props: { speed: 520, c1: '#fb923c', c2: '#ec4899', thickness: 6, glow: 18, maxRings: 7 } },
+      { type: 'image', name: 'Cover art', props: { size: .4, circle: true, pulse: .3, shadow: 44 } },
+      { type: 'spectrum', y: .87, props: { mode: 'mirror', count: 72, barWidth: .5, height: .18, c1: '#fb923c', c2: '#ec4899', glow: 20, curve: .85, alphaFloor: .25 } },
+      { type: 'text', y: .12, props: { text: 'FUEGO', size: 5.5, weight: 900, c1: '#ffedd5', letterSpacing: 20, shadowBlur: 26, anim: 'pulse', animAmt: .4 } },
+    ],
+    post: [FXm('bloom', { threshold: .58, radius: 20, intensity: .6 }), FXm('vignette', { strength: .4 })],
+  });
+
+  T.add({
+    name: 'Gospel Light', desc: 'Golden haze and soft rays',
+    grad: ['#fde68a', '#ffffff'],
+    layers: [
+      { type: 'background', props: { mode: 'gradient', c1: '#141007', c2: '#2b2410', angle: 110, vign: .4 } },
+      { type: 'plasma', props: { c1: '#92400e', c2: '#fbbf24', c3: '#fef3c7', style: 'aurora', scale: 1.8, speed: .16, mix: .4, react: .4 } },
+      { type: 'orbs', props: { count: 16, c1: '#fde68a', c2: '#f59e0b', c3: '#fff7ed', alpha: .26, speed: 4, bassSwell: .5 } },
+      { type: 'spectrum', y: .5, props: { mode: 'radial', count: 90, radius: .3, height: .14, barWidth: .35, c1: '#fef3c7', c2: '#f59e0b', glow: 18, curve: .9, alphaFloor: .3, rounded: true } },
+      { type: 'text', y: .82, props: { text: 'AMAZING', size: 5, weight: 800, c1: '#fffbeb', letterSpacing: 18, shadowBlur: 30, anim: 'float', animAmt: .2 } },
+    ],
+    post: [FXm('bloom', { threshold: .68, radius: 28, intensity: .65 }), FXm('gradmap', { shadow: '#181104', mid: '#b45309', high: '#fffbeb', mix: .18 })],
+  });
+
+  /* ═══════════ community: your own template library (local remix flow) ═══════════ */
+  const LS_KEY = 'vlexyna_templates_v1';
+  T.saveCustom = (name) => {
+    const proj = VX.project && VX.project.current;
+    if (!proj || !proj.layers.length) { U.toast('Nothing to save — add some layers first', 'warn'); return null; }
+    const strip = (k, v) => (k.startsWith('_') && k !== '_seed') ? undefined : v;
+    const t = {
+      name: (name || proj.name || 'My template').slice(0, 40), desc: 'Your template', custom: true,
+      grad: ['#7c6cf0', '#22d3ee'],
+      layers: JSON.parse(JSON.stringify(proj.layers, strip)).map(l => {
+        delete l.id; delete l.start; delete l.end; delete l.locked; delete l.collapsed;
+        l.fx = (l.fx || []).map(f => ({ id: f.id, enabled: f.enabled !== false, params: f.params }));
+        return l;
+      }),
+      post: JSON.parse(JSON.stringify(proj.post || [], strip)),
+    };
+    const lib = T.customList();
+    const i = lib.findIndex(x => x.name === t.name);
+    if (i >= 0) lib[i] = t; else lib.push(t);
+    try { localStorage.setItem(LS_KEY, JSON.stringify(lib)); } catch (e) { U.toast('Could not save template (storage full?)', 'err'); return null; }
+    T._reloadCustom();
+    U.toast(`Template “${t.name}” saved — ${t.layers.length} layers`);
+    return t;
+  };
+  T.customList = () => {
+    try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch (e) { return []; }
+  };
+  T.removeCustom = (name) => {
+    const lib = T.customList().filter(t => t.name !== name);
+    localStorage.setItem(LS_KEY, JSON.stringify(lib));
+    T._reloadCustom();
+  };
+  T._reloadCustom = () => {
+    for (let i = T.list.length - 1; i >= 0; i--) if (T.list[i].custom) T.list.splice(i, 1);
+    for (const t of T.customList()) { t.custom = true; T.add(t); }
+  };
+  T._reloadCustom();
 })();

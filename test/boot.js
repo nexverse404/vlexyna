@@ -140,6 +140,79 @@ if (VX) {
     collapse.click(); await tick();
     check(!doc.body.classList.contains('tl-closed'), 'timeline expand removes it');
   }
+  /* ── v2.2 chrome: reactivity mixer, GIF tab, save-template, zoom, gizmo ── */
+  {
+    const tick2 = () => new Promise(r => setTimeout(r, 30));
+    /* reactivity button in the transport opens the mixer */
+    const rxBtn = [...doc.querySelectorAll('.transport .ib')].find(b => (b.title || '').includes('reactivity'));
+    check(!!rxBtn, 'reactivity mixer button in transport');
+    if (rxBtn) {
+      rxBtn.click(); await tick2();
+      const modal = doc.querySelector('.modal');
+      check(!!modal && modal.textContent.includes('Audio reactivity'), 'reactivity modal opens');
+      check(modal && modal.querySelectorAll('input[type=range]').length >= 5, 'reactivity modal has 5 band sliders');
+      const reset = [...modal.querySelectorAll('button')].find(b => /reset/i.test(b.textContent));
+      check(!!reset, 'reactivity reset button');
+      const closeB = modal.querySelector('.m-h .ib') || modal.querySelector('.modal-h .ib');
+      closeB && closeB.click(); await tick2();
+    }
+    /* export modal gains a GIF tab (disabled until audio loads) */
+    const expBtn = [...doc.querySelectorAll('header.bar .btn')].find(b => /Export/.test(b.textContent));
+    expBtn.click(); await tick2();
+    let gifTab = null, modes = null;
+    for (const b of doc.querySelectorAll('.x-modes button')) if (b.textContent.includes('GIF')) gifTab = b;
+    modes = doc.querySelectorAll('.x-modes button').length;
+    check(modes === 4, 'export modal has 4 modes (video/mp4/frames/gif)');
+    check(!!gifTab && gifTab.disabled, 'GIF tab present + disabled without audio');
+    const closeX = doc.querySelector('.modal-h .ib') || doc.querySelector('.m-h .ib');
+    closeX && closeX.click(); await tick2();
+    /* templates modal offers saving your own */
+    const tplBtn = [...doc.querySelectorAll('header.bar .btn')].find(b => /Templates/.test(b.textContent));
+    tplBtn.click(); await tick2();
+    const saveTpl = [...doc.querySelectorAll('button')].find(b => /Save current as template/.test(b.textContent));
+    check(!!saveTpl, 'templates modal has “save current as template”');
+    const closeX2 = doc.querySelector('.modal-h .ib') || doc.querySelector('.m-h .ib');
+    closeX2 && closeX2.click(); await tick2();
+    /* stage zoom controls */
+    const zoomBtns = doc.querySelectorAll('.zoombar .ib');
+    check(zoomBtns.length === 3, 'stage zoom controls (−/fit/+)');
+    if (zoomBtns.length === 3) {
+      zoomBtns[2].click(); await tick2();
+      check(/25%/.test(doc.querySelector('.zoombar .zoom-cur').textContent), 'zoom in shows 25%');
+      zoomBtns[1].click(); await tick2();
+      check(/Fit/.test(doc.querySelector('.zoombar .zoom-cur').textContent), 'fit restores');
+    }
+    /* dynamic font picker — text layer params resolve through a function now */
+    {
+      const t = chosen.window.VX.layers.make('text');
+      chosen.window.VX.project.current.layers.push(t);
+      chosen.window.VX.ui.refreshAll();          /* bump S.rev so the panel re-renders */
+      await tick2();
+      const row2 = doc.querySelector('.layers .row');   /* panel shows layers reversed — newest first */
+      row2 && row2.click(); await tick2();
+      const sel = [...doc.querySelectorAll('.insp select')];
+      const fontSel = sel.find(s => [...s.options].some(o => /Default Sans|Arial/.test(o.textContent)));
+      check(!!fontSel && fontSel.options.length >= 12, 'font picker renders dynamic options');
+      check(chosen._errLog.length === 0, 'font picker renders without errors');
+    }
+    /* selecting a layer reveals the transform gizmo (select() toggles — text is already selected above, so click the next row) */
+    const row = [...doc.querySelectorAll('.layers .row')][1];
+    if (row) {
+      row.click(); await tick2();
+      check(!!doc.querySelector('.giz-r') && !!doc.querySelector('.giz-s'), 'transform gizmo handles appear on selection');
+      check(!!doc.querySelector('.giz-info'), 'gizmo shows rotation/scale readout');
+    }
+    /* help lists the new shortcuts */
+    const helpBtn = [...doc.querySelectorAll('header.bar .ib')].find(b => (b.title || '').includes('shortcut'));
+    if (helpBtn) {
+      helpBtn.click(); await tick2();
+      const h = doc.body.textContent;
+      check(h.includes('split layer at playhead') && h.includes('reactivity mixer'), 'help lists the new shortcuts');
+      const closeX3 = doc.querySelector('.modal-h .ib') || doc.querySelector('.m-h .ib');
+      closeX3 && closeX3.click(); await tick2();
+    }
+  }
+
   /* the built CSS must carry the breakpoints */
   const css = fs.readdirSync(distDir).filter(f => f.endsWith('.css')).map(f => fs.readFileSync(path.join(distDir, f), 'utf8')).join('');
   check(/@media[^{]*max-width:\s*1220px/.test(css), 'CSS has the drawer breakpoint (1220px)');

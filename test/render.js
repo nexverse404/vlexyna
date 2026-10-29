@@ -76,6 +76,9 @@ const shots = [
   ['tunnel', 'Cosmic Tunnel'], ['party', 'Party Pop'], ['lyricfocus', 'Lyric Focus'],
   ['fire', 'Fire Bars'], ['vhs', 'Glitch VHS'], ['led', 'LED Wall'], ['minimal', 'Minimal Studio'],
   ['shaderlab', 'Shader Lab'], ['orbital', 'Orbital'],
+  ['hiphop', 'Hip-Hop Bars'], ['lofi', 'Lo-Fi Study'], ['dnb', 'DnB Rush'], ['metal', 'Metal Storm'],
+  ['jazz', 'Jazz Club'], ['ambient', 'Ambient Drift'], ['podcast', 'Podcast Pro'], ['dubstep', 'Dubstep Drop'],
+  ['trailer', 'Cinematic Trailer'], ['kpop', 'K-Pop Sparkle'], ['reggaeton', 'Reggaeton Heat'], ['gospel', 'Gospel Light'],
 ];
 for (const [slug, name] of shots) {
   const t = VX.templates.list.find(x => x.name === name);
@@ -201,5 +204,36 @@ for (const [slug, name] of shots) {
   }
   VX.offline.restore(eng);
   console.log('✓ rendered offline-timeline frames (beat + calm)');
+}
+/* GIF export — the full audio-reactive pipeline through gifenc */
+{
+  const downloads = [];
+  VX.util.download = (blob, name) => downloads.push({ blob, name });
+  const JSDOMBlob = window.Blob;
+  window.Blob = Blob;   /* Node Blob understands arrayBuffer(); jsdom's does not */
+  const proj = VX.project.current;
+  proj.width = 640; proj.height = 360;
+  proj.layers = [];
+  proj.post = [];
+  const add = (type, fn) => { const l = VX.layers.make(type); fn && fn(l); proj.layers.push(l); return l; };
+  add('background', l => { l.props.mode = 'gradient'; l.props.c1 = '#0b0d1a'; l.props.c2 = '#23124a'; });
+  add('spectrum', l => { l.y = .7; l.props.count = 48; l.props.height = .45; l.props.c1 = '#22d3ee'; l.props.c2 = '#e879f9'; l.props.glow = 18; });
+  add('text', l => { l.y = .16; l.props.text = 'GIF PIPELINE'; l.props.size = 5; l.props.c1 = '#f8fafc'; });
+  const SR = 44100, DUR = 2;
+  const data = new Float32Array(SR * DUR);
+  for (let i = 0; i < data.length; i++) {
+    const t = i / SR;
+    data[i] = .65 * Math.exp(-((t % .5) * 12)) * Math.sin(2 * Math.PI * 62 * (t % .5)) + .1 * Math.sin(2 * Math.PI * 440 * t);
+  }
+  eng.buffer = { sampleRate: SR, numberOfChannels: 1, duration: DUR, getChannelData: () => data };
+  await VX.offline.exportGif({ fps: 8, width: 160 });
+  eng.buffer = null;
+  window.Blob = JSDOMBlob;
+  if (!downloads.length) throw new Error('exportGif produced no file');
+  const buf = Buffer.from(await downloads[0].blob.arrayBuffer());
+  fs.writeFileSync(path.join(OUT, 'mini.gif'), buf);
+  if (buf.slice(0, 4).toString('ascii') !== 'GIF8') throw new Error('not a GIF: ' + buf.slice(0, 6).toString('hex'));
+  if (buf.length < 800) throw new Error('GIF suspiciously small: ' + buf.length);
+  console.log('✓ exported real GIF —', downloads[0].name, buf.length, 'bytes');
 }
 console.log('done →', OUT);

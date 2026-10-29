@@ -11,6 +11,7 @@ const props = defineProps({
   layer: Object,     /* owning layer (for ƒ automation), or null */
 });
 
+const opts = computed(() => typeof props.param.options === 'function' ? props.param.options() : props.param.options);
 const val = computed(() => props.get());
 const isAuto = computed(() => props.layer?.auto?.[props.param.key] != null);
 const autoVal = computed(() => props.layer?.auto?.[props.param.key] || '');
@@ -68,8 +69,8 @@ function pickFile() {
     </div>
 
     <div v-else-if="param.t === 'sel'" class="ctl-v">
-      <select :value="String(val)" @change="set(param.options[+$event.target.selectedIndex][0])">
-        <option v-for="(o, i) in param.options" :key="i" :value="String(o[0])">{{ o[1] }}</option>
+      <select :value="String(val)" @change="set(opts[+$event.target.selectedIndex][0])">
+        <option v-for="(o, i) in opts" :key="i" :value="String(o[0])">{{ o[1] }}</option>
       </select>
     </div>
 

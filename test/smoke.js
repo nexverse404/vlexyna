@@ -154,7 +154,7 @@ const noWarns = () => { if (warns.length) { const w = warns.splice(0); throw new
   console.log('\n── registries ──');
   ok('21 layer types registered', () => { if (VX.layers.list.length !== 21) throw new Error('got ' + VX.layers.list.length); });
   ok('64 effects registered', () => { if (VX.fx.list.length !== 64) throw new Error('got ' + VX.fx.list.length); });
-  ok('18 templates registered', () => { if (VX.templates.list.length !== 18) throw new Error('got ' + VX.templates.list.length); });
+  ok('30 templates registered', () => { if (VX.templates.list.length !== 30) throw new Error('got ' + VX.templates.list.length); });
   ok('every fx def has id/name/cat/params', () => {
     for (const d of VX.fx.list) {
       if (!d.id || !d.name || !d.cat || !Array.isArray(d.params) || typeof d.apply !== 'function') throw new Error(d.id || 'unnamed');
@@ -441,6 +441,63 @@ const noWarns = () => { if (warns.length) { const w = warns.splice(0); throw new
     VX.project.current.vars.v1 = 5;
     const env = VX.renderer.envFor(2, 0, { bass: 0, mid: 0, treble: 0, level: 0, beat: 0 }, VX.project.current.vars);
     if (env.v1 !== 5) throw new Error('v1 missing');
+  });
+
+  console.log('\n── v2.2: templates · reactivity mixer · fonts · gif ──');
+  ok('every template applies cleanly', () => {
+    for (const t of VX.templates.list) {
+      VX.templates.apply(t);
+      if (!VX.project.current.layers.length) throw new Error(t.name + ' produced no layers');
+      if (t.post && !VX.project.current.post) throw new Error(t.name + ' lost post fx');
+    }
+  });
+  ok('genre pack present', () => {
+    for (const n of ['Hip-Hop Bars', 'Lo-Fi Study', 'DnB Rush', 'Metal Storm', 'Jazz Club', 'Ambient Drift', 'Podcast Pro', 'Dubstep Drop', 'Cinematic Trailer', 'K-Pop Sparkle', 'Reggaeton Heat', 'Gospel Light'])
+      if (!VX.templates.list.some(t => t.name === n)) throw new Error('missing ' + n);
+  });
+  ok('custom template save/list/remove round-trip', () => {
+    VX.templates.apply(VX.templates.list.find(t => t.name === 'Neon Wave'));
+    const t = VX.templates.saveCustom('Smoke Test TPL');
+    if (!t || t.layers.length < 3) throw new Error('saveCustom failed');
+    if (!VX.templates.customList().some(x => x.name === 'Smoke Test TPL')) throw new Error('not in library');
+    if (!VX.templates.list.some(x => x.name === 'Smoke Test TPL' && x.custom)) throw new Error('not merged into list');
+    VX.templates.removeCustom('Smoke Test TPL');
+    if (VX.templates.list.some(x => x.name === 'Smoke Test TPL')) throw new Error('removeCustom failed');
+  });
+  ok('custom template survives same-name overwrite', () => {
+    VX.templates.saveCustom('Overwrite TPL');
+    const t2 = VX.templates.saveCustom('Overwrite TPL');
+    if (VX.templates.customList().filter(x => x.name === 'Overwrite TPL').length !== 1) throw new Error('duplicate');
+    VX.templates.removeCustom('Overwrite TPL');
+  });
+  ok('reactivity gains mixer api', () => {
+    const g = VX.audio.engine.gains;
+    for (const k of ['bass', 'mid', 'treble', 'level', 'beat']) if (!(k in g)) throw new Error('missing ' + k);
+    g.bass = 1.5; g.beat = .5;
+    if (VX.audio.engine.gains.bass !== 1.5) throw new Error('not live');
+    g.bass = 1; g.beat = 1;
+  });
+  ok('custom fonts merge into font options', () => {
+    VX.layers.registerFontCss('SmokeFace', "'SmokeFace', sans-serif");
+    const o = VX.layers.fontOptions();
+    if (!o.some(x => x[0] === "'SmokeFace', sans-serif")) throw new Error('not merged');
+  });
+  ok('font asset round-trips through the asset store', () => {
+    const id = VX.assets.addData('font', 'SmokeFace.ttf', 'data:font/ttf;base64,QUJD');
+    const a = VX.assets.get(id);
+    if (!a || a.kind !== 'font' || !a.dataUrl) throw new Error('asset not stored');
+    const ser = JSON.stringify(VX.assets.serialize());
+    if (!ser.includes('SmokeFace.ttf')) throw new Error('not serialized');
+  });
+  ok('font pickers resolve dynamically', () => {
+    const textDef = VX.layers.byId.text;
+    const p = textDef.params.flat(9).find(p => p.key === 'font');
+    if (typeof p.options !== 'function') throw new Error('font options not a function');
+    if (!p.options().length) throw new Error('no options');
+  });
+  ok('exportGif exposed + guards without audio', async () => {
+    if (typeof VX.offline.exportGif !== 'function') throw new Error('missing');
+    await VX.offline.exportGif({});   /* no buffer -> polite toast, no throw */
   });
 
   console.log('\n── final: no window errors during whole run ──');

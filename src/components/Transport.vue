@@ -1,9 +1,13 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
-import { S } from '../store.js';
+import { S, openModal } from '../store.js';
 import { loadDemo, loadAudioFile } from '../appctl.js';
 import { U } from '../../engine/util.js';
 
+const isTweaked = computed(() => {
+  const g = S.vx?.audio?.engine?.gains;
+  return !!g && Object.values(g).some(v => Math.abs(v - 1) > .01);
+});
 const beatStyle = computed(() => ({
   opacity: 0.22 + S.bands.beat * 0.78,
   transform: `scale(${1 + S.bands.beat * .9})`,
@@ -85,6 +89,7 @@ const fmt = (s) => {
       <button class="ib" @click="toggleMute" :title="S.audio.muted ? 'Unmute' : 'Mute monitor'" v-html="U.icon(S.audio.muted ? 'volumeOff' : 'volume')"></button>
       <input type="range" min="0" max="100" :value="S.audio.vol * 100" @input="setVol" title="Monitor volume">
     </div>
+    <button class="ib" :class="{ on: isTweaked }" @click="openModal('reactivity')" title="Audio reactivity mixer (R)" v-html="U.icon('bars')"></button>
     <button class="ib" :class="{ on: S.audio.micOn }" @click="toggleMic" title="Live microphone mode (M)" v-html="U.icon('mic')"></button>
 
     <div class="audio">

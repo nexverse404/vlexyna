@@ -27,7 +27,7 @@ mod tests {
     fn config_has_required_fields() {
         let c = conf();
         assert_eq!(c["productName"], "Vlexyna");
-        assert_eq!(c["version"], "2.1.0");
+        assert_eq!(c["version"], "2.2.0");
         assert!(
             c["identifier"].as_str().unwrap().contains('.'),
             "identifier must be reverse-DNS"

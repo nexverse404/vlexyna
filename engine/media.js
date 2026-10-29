@@ -34,6 +34,11 @@ import { VX, U } from './util.js';
     },
     addData(kind, name, dataUrl, text) {
       const id = U.uid();
+      if (kind === 'font') {
+        A.map.set(id, { id, kind: 'font', name, dataUrl });
+        A._loadFontFace(name, dataUrl);
+        return id;
+      }
       if (kind === 'json') {
         let data = null;
         try { data = JSON.parse(text || dataUrl || 'null'); } catch (e) { }
@@ -47,6 +52,19 @@ import { VX, U } from './util.js';
       return id;
     },
     get: (id) => A.map.get(id),
+    /* register an uploaded font with the document and every font picker */
+    async _loadFontFace(name, dataUrl) {
+      const family = (name || 'Custom font').replace(/\.[^.]+$/, '').replace(/["']/g, '');
+      try {
+        if (typeof FontFace !== 'undefined' && document && document.fonts) {
+          const ff = new FontFace(family, `url(${dataUrl})`);
+          await ff.load();
+          document.fonts.add(ff);
+        }
+      } catch (e) { /* headless / unsupported — the asset still round-trips */ }
+      const L2 = VX.layers;
+      if (L2) L2.registerFontCss(family, `'${family}', sans-serif`);
+    },
     drawCover(x, el, cx, cy, w, h) {
       const iw = el.videoWidth || el.naturalWidth, ih = el.videoHeight || el.naturalHeight;
       if (!iw || !ih) return;
@@ -252,7 +270,7 @@ import { VX, U } from './util.js';
     }),
     params: [
       P.area('text', 'Text'),
-      P.sel('font', 'Font', L.fonts, ''),
+      P.sel('font', 'Font', L.fontOptions, ''),
       P.sel('weight', 'Weight', [['300', 'Light'], ['400', 'Regular'], ['600', 'Semi-bold'], ['700', 'Bold'], ['800', 'Extra-bold'], ['900', 'Black']], '700'),
       P.bool('italic', 'Italic'), P.bool('uppercase', 'UPPERCASE'),
       P.num('size', 'Size', .5, 40, .1, 8, { auto: true }),
@@ -329,7 +347,7 @@ import { VX, U } from './util.js';
       P.num('popAmt', 'Style amount', 0, 1, .01, .2),
       P.bool('showNext', 'Show next line'), P.num('nextSize', 'Next line size', .1, 1, .01, .55), P.num('nextAlpha', 'Next line opacity', 0, 1, .01, .45),
       P.num('size', 'Size', .5, 40, .1, 6, { auto: true }), P.num('lineHeight', 'Line height', .8, 2, .05, 1.2),
-      P.sel('font', 'Font', L.fonts, ''), P.sel('weight', 'Weight', [['300', 'Light'], ['400', 'Regular'], ['600', 'Semi-bold'], ['700', 'Bold'], ['800', 'Extra-bold'], ['900', 'Black']], '800'),
+      P.sel('font', 'Font', L.fontOptions, ''), P.sel('weight', 'Weight', [['300', 'Light'], ['400', 'Regular'], ['600', 'Semi-bold'], ['700', 'Bold'], ['800', 'Extra-bold'], ['900', 'Black']], '800'),
       P.bool('italic', 'Italic'), P.bool('uppercase', 'UPPERCASE'),
       P.color('c1', 'Color'), P.bool('gradient', 'Gradient'), P.color('c2', 'Gradient B'),
       P.color('strokeColor', 'Stroke'), P.num('strokeWidth', 'Stroke width', 0, 30, 1, 0),

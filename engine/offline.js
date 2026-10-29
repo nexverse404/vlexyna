@@ -240,4 +240,92 @@ import { VX, U } from './util.js';
       VX.ui && VX.ui.updateTransport && VX.ui.updateTransport();
     }
   };
+
+  /* ─────────────────────────────────────────────────────────────
+     GIF export — audio-reactive animated GIF, fully client-side.
+     Renders every frame through the same precomputed FFT timeline
+     as the MP4 exporter, downscales, quantizes and writes a .gif.
+     ───────────────────────────────────────────────────────────── */
+  OFF.exportGif = async (opts = {}) => {
+    const eng = VX.audio.engine;
+    const proj = VX.project.current;
+    const app = VX.app || { pause() { }, play() { } };
+    const name = (opts.name || proj.name || 'vlexyna').replace(/[^\w\- ]+/g, '').trim() || 'vlexyna';
+    const fps = Math.max(2, Math.min(30, opts.fps || 15));
+    const gw = Math.max(64, Math.min(1080, opts.width || 480));
+    const maxSeconds = opts.maxSeconds || 0;
+
+    if (!eng.buffer) { U.toast('Load an audio track first — GIF export is audio-reactive', 'warn'); return; }
+    let gifenc;
+    try { gifenc = await import('gifenc'); }
+    catch (e) { U.toast('GIF encoder unavailable in this browser', 'err'); return; }
+    const { GIFEncoder, quantize, applyPalette } = gifenc;
+
+    const wasPlaying = app.playing;
+    app.pause && app.pause();
+    OFF.active = true; OFF._cancelled = false;
+    VX.app.exporting = true;
+    const badge = document.getElementById('exportBadge'); if (badge) badge.style.display = '';
+
+    try {
+      const prog = (p, label) => VX.app.onExportProgress && VX.app.onExportProgress(p, label || '', 0);
+      prog(.05, 'Analyzing audio…');
+      const tl = await OFF.precompute(eng.buffer, Math.max(fps, 30), () => OFF._cancelled);
+      if (OFF._cancelled) { U.toast('GIF export cancelled'); return; }
+
+      const W = proj.width, H = proj.height;
+      const gh = Math.max(2, Math.round(gw * H / W));
+      const big = document.createElement('canvas'); big.width = W; big.height = H;
+      const small = document.createElement('canvas'); small.width = gw; small.height = gh;
+      const bx = big.getContext('2d'), sx = small.getContext('2d');
+      sx.imageSmoothingEnabled = true; sx.imageSmoothingQuality = 'high';
+
+      const total = tl.total;
+      const step = Math.max(1, Math.round(30 / fps));      /* timeline is >= 30fps — sample it */
+      const frames = [];
+      for (let f = 0; f < total; f += step) if (!maxSeconds || (f / 30) <= maxSeconds) frames.push(f);
+      const delay = Math.round(1000 / fps);
+      const gif = GIFEncoder();
+      let palette = null;
+
+      for (let i = 0; i < frames.length; i++) {
+        if (OFF._cancelled) break;
+        OFF.apply(eng, tl, frames[i]);
+        bx.setTransform(1, 0, 0, 1, 0, 0); bx.globalAlpha = 1; bx.globalCompositeOperation = 'source-over';
+        VX.renderer.render(big, frames[i] / 30, { dt: 1 / 30, playing: true });
+        sx.clearRect(0, 0, gw, gh);
+        sx.drawImage(big, 0, 0, gw, gh);
+        const { data } = sx.getImageData(0, 0, gw, gh);
+        /* opaque-composite onto black so transparency quantizes cleanly */
+        for (let k = 0; k < data.length; k += 4) if (data[k + 3] < 255) {
+          const a = data[k + 3] / 255;
+          data[k] *= a; data[k + 1] *= a; data[k + 2] *= a; data[k + 3] = 255;
+        }
+        /* gifenc wants a plain Uint8Array — ImageData hands back a Uint8ClampedArray */
+        const rgba = data instanceof Uint8Array ? data : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+        if (!palette || i % 24 === 0) palette = quantize(rgba, 256, { format: 'rgb444' });
+        const index = applyPalette(rgba, palette, 'rgb444');
+        gif.writeFrame(index, gw, gh, { palette, delay });
+        prog(.05 + .9 * (i + 1) / frames.length, `GIF frame ${i + 1}/${frames.length}`);
+        if (i % 4 === 3) await new Promise(r => setTimeout(r, 0));   /* keep the UI breathing */
+      }
+      if (OFF._cancelled) { U.toast('GIF export cancelled'); return; }
+      prog(.97, 'Finishing…');
+      gif.finish();
+      const blob = new Blob([gif.bytes()], { type: 'image/gif' });
+      U.download(blob, `${name}_${gh}p.gif`);
+      U.toast(`GIF exported — ${frames.length} frames, ${U.fmtBytes(blob.size)}`);
+    } catch (e) {
+      U.toast('GIF export failed: ' + (e && e.message || e), 'err');
+      if (window.console) console.warn('[vlexyna] gif export', e);
+    } finally {
+      OFF.restore(eng);
+      OFF.active = false; OFF._cancelled = false;
+      VX.app.exporting = false;
+      if (badge) badge.style.display = 'none';
+      if (wasPlaying) app.play && app.play();
+      VX.app.onExportProgress && VX.app.onExportProgress(1, '', 0);
+      VX.ui && VX.ui.updateTransport && VX.ui.updateTransport();
+    }
+  };
 })();
