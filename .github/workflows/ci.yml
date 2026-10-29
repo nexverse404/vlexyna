@@ -66,9 +66,10 @@ jobs:
       - name: cargo clippy
         run: |
           if ! out=$(cargo clippy --all-targets -- -D warnings 2>&1); then
-            printf '%s\n' "$out" | tail -60 | while IFS= read -r l; do
-              printf '::error title=cargo clippy::%s\n' "$l"
-            done
+            printf '%s\n' "$out" | sed 's/\x1b\[[0-9;]*m//g' > /tmp/c.log
+            grep -E '^(error|warning)' /tmp/c.log | head -10 > /tmp/ann.txt
+            [ -s /tmp/ann.txt ] || tail -10 /tmp/c.log > /tmp/ann.txt
+            while IFS= read -r l; do printf '::error title=cargo clippy::%s\n' "$l"; done < /tmp/ann.txt
             exit 1
           fi
         working-directory: src-tauri
@@ -78,9 +79,10 @@ jobs:
       - name: cargo test
         run: |
           if ! out=$(cargo test 2>&1); then
-            printf '%s\n' "$out" | tail -60 | while IFS= read -r l; do
-              printf '::error title=cargo test::%s\n' "$l"
-            done
+            printf '%s\n' "$out" | sed 's/\x1b\[[0-9;]*m//g' > /tmp/t.log
+            grep -E '^(error|failures|test .* FAILED)' /tmp/t.log | head -10 > /tmp/ann.txt
+            [ -s /tmp/ann.txt ] || tail -10 /tmp/t.log > /tmp/ann.txt
+            while IFS= read -r l; do printf '::error title=cargo test::%s\n' "$l"; done < /tmp/ann.txt
             exit 1
           fi
         working-directory: src-tauri
