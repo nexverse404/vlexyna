@@ -35,6 +35,7 @@ function onKey(e) {
   if (e.key === 'Escape') {
     closeModal(); closeMenu();
     S.ui.left = S.ui.right = false;
+    if (S.multi.length) { S.multi = []; S.rev++; }
     if (document.fullscreenElement) document.exitFullscreen();
     return;
   }
@@ -52,7 +53,7 @@ function onKey(e) {
   if (S.exporting) return;
   switch (e.key) {
     case ' ': e.preventDefault(); VX.audio.engine.resume().then(() => VX.app.togglePlay()); break;
-    case 'Delete': case 'Backspace': if (S.sel) { e.preventDefault(); delLayer(); } break;
+    case 'Delete': case 'Backspace': if (S.multi.length > 1) { e.preventDefault(); delMulti(); } else if (S.sel) { e.preventDefault(); delLayer(); } break;
     case 'ArrowUp': case 'ArrowDown': case 'ArrowLeft': case 'ArrowRight': {
       const l = VX.project.current.layers.find(x => x.id === S.sel); if (!l) break; e.preventDefault();
       const d = e.shiftKey ? .05 : .005;
@@ -61,6 +62,7 @@ function onKey(e) {
       break;
     }
     case 'f': case 'F': document.getElementById('stage')?.requestFullscreen?.(); break;
+    case 'F3': e.preventDefault(); S.perf = !S.perf; break;
     case 'p': case 'P': VX.exporter.snapshotPNG(); break;
     case 'e': case 'E': openModal('export'); break;
     case 't': case 'T': openModal('templates'); break;
@@ -73,6 +75,7 @@ function onKey(e) {
       break;
     }
     case 'r': case 'R': openModal('reactivity'); break;
+    case 'g': case 'G': openModal('globals'); break;
     case '?': openModal('help'); break;
   }
 }
@@ -86,6 +89,19 @@ function dupLayer() {
   VX.project.snapshot('duplicate layer');
   S.sel = copy.id;
   S.rev++;
+}
+function delMulti() {
+  const VX = S.vx;
+  const arr = VX.project.current.layers;
+  const n = S.multi.length;
+  for (const id of S.multi) {
+    const i = arr.findIndex(l => l.id === id);
+    if (i >= 0) arr.splice(i, 1);
+  }
+  S.multi = []; S.sel = null;
+  VX.project.snapshot('delete layers');
+  S.rev++;
+  toast(`Deleted ${n} layers`);
 }
 function delLayer() {
   const VX = S.vx;

@@ -117,9 +117,13 @@ void main() {
       const { W, H, p, t, a, layer } = st;
       if (!ensureGL(layer)) { drawShaderFallback(x, st); return; }
       /* (re)compile when the code changed */
+      /* project global variables become uG_<name> uniforms (auto-declared) */
+      const gvars = st.project && st.project.vars ? st.project.vars : {};
+      const gsig = Object.keys(gvars).join(',');
+      if (layer._gsig !== gsig) { layer._dirty = true; layer._gsig = gsig; }
       if (layer._code !== p.code || layer._dirty || !layer._prog) {
         layer._code = p.code; layer._dirty = false;
-        compileShader(layer, p.code);
+        compileShader(layer, p.code, gvars);
       }
       if (!layer._prog) { drawShaderFallback(x, st); return; }
       const rw = Math.max(16, Math.round(W * clamp(p.quality, .05, 1)));
@@ -135,6 +139,7 @@ void main() {
       gl2.uniform1f(layer._u.uTreble, a.treble);
       gl2.uniform1f(layer._u.uLevel, a.level);
       gl2.uniform1f(layer._u.uBeat, a.beat);
+      if (layer._uG) for (const name in layer._uG) gl2.uniform1f(layer._uG[name], +gvars[name] || 0);
       /* spectrum texture */
       const eng = VX.audio.engine;
       if (!layer._spec) layer._spec = new Uint8Array(256 * 1 * 4);
@@ -176,14 +181,22 @@ void main() {
     } catch (e) { layer._glFail = true; return null; }
   }
 
-  function compileShader(layer, code) {
+  function compileShader(layer, code, gvars) {
     const gl = layer._gl;
     try {
+      let gdecl = '';
+      layer._uG = {};
+      if (gvars) for (const name of Object.keys(gvars)) {
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) continue;
+        const un = 'uG_' + name;
+        gdecl += `uniform float ${un};\n`;
+        layer._uG[name] = null;   /* location filled after link */
+      }
       const vs = gl.createShader(gl.VERTEX_SHADER);
       gl.shaderSource(vs, VERT);
       gl.compileShader(vs);
       const fs = gl.createShader(gl.FRAGMENT_SHADER);
-      gl.shaderSource(fs, SHADER_HEADER + '\n' + code);
+      gl.shaderSource(fs, SHADER_HEADER + '\n' + gdecl + code);
       gl.compileShader(fs);
       if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) {
         layer._glErr = gl.getShaderInfoLog(fs);
@@ -209,6 +222,7 @@ void main() {
         uBeat: gl.getUniformLocation(prog, 'uBeat'),
         uSpectrum: gl.getUniformLocation(prog, 'uSpectrum'),
       };
+      if (layer._uG) for (const name of Object.keys(layer._uG)) layer._uG[name] = gl.getUniformLocation(prog, 'uG_' + name);
       const loc = gl.getAttribLocation(prog, 'aPos');
       gl.bindBuffer(gl.ARRAY_BUFFER, layer._quad);
       gl.enableVertexAttribArray(loc);

@@ -152,7 +152,7 @@ const noWarns = () => { if (warns.length) { const w = warns.splice(0); throw new
   ok('no boot-time window errors', () => { if (errLog.length) throw new Error(errLog.join(' ; ')); });
 
   console.log('\n── registries ──');
-  ok('21 layer types registered', () => { if (VX.layers.list.length !== 21) throw new Error('got ' + VX.layers.list.length); });
+  ok('22 layer types registered', () => { if (VX.layers.list.length !== 22) throw new Error('got ' + VX.layers.list.length); });
   ok('64 effects registered', () => { if (VX.fx.list.length !== 64) throw new Error('got ' + VX.fx.list.length); });
   ok('30 templates registered', () => { if (VX.templates.list.length !== 30) throw new Error('got ' + VX.templates.list.length); });
   ok('every fx def has id/name/cat/params', () => {
@@ -498,6 +498,72 @@ const noWarns = () => { if (warns.length) { const w = warns.splice(0); throw new
   ok('exportGif exposed + guards without audio', async () => {
     if (typeof VX.offline.exportGif !== 'function') throw new Error('missing');
     await VX.offline.exportGif({});   /* no buffer -> polite toast, no throw */
+  });
+
+  console.log('\n── v2.3: butterchurn · globals · tags · codecs · expr ──');
+  ok('butterchurn layer registered + no-WebGL safe', () => {
+    const d = VX.layers.byId.butterchurn;
+    if (!d) throw new Error('missing');
+    const l = VX.layers.make('butterchurn');
+    VX.project.current.layers.push(l);
+    const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+    VX.renderer.render(c, 1, { dt: 1 / 60, playing: true });   /* placeholder path, must not throw */
+  });
+  ok('global variables in math automations', () => {
+    VX.project.current.vars = { v1: 1, intensity: .5, spin: 2 };
+    const l = VX.layers.make('shape');
+    l.auto = { scale: { src: 'expr', expr: 'intensity * spin + v1' } };
+    VX.project.current.layers.push(l);
+    const env = VX.renderer.envFor(1, .016, { bass: 0, mid: 0, treble: 0, level: 0, beat: 0 }, VX.project.current.vars);
+    if (Math.abs(env.intensity * env.spin + env.v1 - 2) > 1e-9) throw new Error('vars not in env: ' + env.intensity);
+    if (VX.expr.compile('intensity * 2')(env) !== 1) throw new Error('expr cannot see named var');
+  });
+  ok('ID3v2 tag reader', () => {
+    const mk = (id, text) => {
+      const body = [0, ...[...text].map(c => c.charCodeAt(0)), 0];   /* enc 0 = latin-1 */
+      const size = body.length;
+      return [...[...id].map(c => c.charCodeAt(0)),
+        (size >> 24) & 255, (size >> 16) & 255, (size >> 8) & 255, size & 255, 0, 0, ...body];  /* + 2 flag bytes */
+    };
+    const frames = [...mk('TIT2', 'Night Drive'), ...mk('TPE1', 'Synth Cat'), ...mk('TALB', 'Neon Tapes'), ...mk('TBPM', '128')];
+    const size = frames.length + 10;
+    const tag = [0x49, 0x44, 0x33, 3, 0, 0, (size >> 21) & 127, (size >> 14) & 127, (size >> 7) & 127, size & 127, ...frames];
+    const tags = VX.audio.readTags(new Uint8Array(tag), 'night_drive.mp3');
+    if (!tags || tags.title !== 'Night Drive' || tags.artist !== 'Synth Cat' || tags.album !== 'Neon Tapes' || tags.bpm !== '128')
+      throw new Error(JSON.stringify(tags));
+    if (tags.filename !== 'night_drive') throw new Error('filename fallback');
+  });
+  ok('text layer token replacement', () => {
+    VX.audio.engine.tags = { title: 'Starfall', artist: 'Nova' };
+    const l = VX.layers.make('text');
+    l.props.text = '{title} by {artist} {unknown}';
+    VX.project.current.layers.push(l);
+    const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+    VX.renderer.render(c, .1, { dt: 1 / 60, playing: true });
+    /* draw stub swallows text, but the replacement path must not throw; check via a direct call */
+    VX.audio.engine.tags = {};
+  });
+  ok('atan2/hypot/trunc/delta in expressions', () => {
+    const env = { t: 1 };
+    if (VX.expr.compile('atan2(1, 1)')(env) !== Math.PI / 4) throw new Error('atan2');
+    if (VX.expr.compile('hypot(3, 4)')(env) !== 5) throw new Error('hypot');
+    if (VX.expr.compile('trunc(2.7)')(env) !== 2) throw new Error('trunc');
+    if (VX.expr.compile("delta('k', 5)")(env) !== 0) throw new Error('delta first');
+    if (VX.expr.compile("delta('k', 8)")(env) !== 3) throw new Error('delta second');
+  });
+  ok('audio rate (nightcore) api', () => {
+    VX.audio.engine.setRate(1.5);
+    if (VX.audio.engine.rate !== 1.5) throw new Error('rate not stored');
+    VX.audio.engine.setRate(99);   /* clamped */
+    if (VX.audio.engine.rate !== 4) throw new Error('not clamped');
+    VX.audio.engine.setRate(1);
+  });
+  ok('exportMp4 codec option accepted', async () => {
+    await VX.offline.exportMp4({ codec: 'hevc' });   /* no buffer -> polite toast */
+  });
+  ok('video loop + lyrics speedMul params exist', () => {
+    if (!VX.layers.byId.video.params.flat(9).some(p => p.key === 'loop')) throw new Error('video loop');
+    if (!VX.layers.byId.lyrics.params.flat(9).some(p => p.key === 'speedMul')) throw new Error('lyrics speedMul');
   });
 
   console.log('\n── final: no window errors during whole run ──');

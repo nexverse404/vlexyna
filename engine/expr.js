@@ -14,6 +14,12 @@ import { VX, U } from './util.js';
         let j = i; while (j < src.length && (isD(src[j]) || src[j] === '.')) j++;
         toks.push({ t: 'num', v: parseFloat(src.slice(i, j)) }); i = j; continue;
       }
+      if (c === '\'' || c === '"') {
+        const q = c; let j = i + 1;
+        while (j < src.length && src[j] !== q) j++;
+        if (j >= src.length) throw new Error('Unterminated string');
+        toks.push({ t: 'str', v: src.slice(i + 1, j) }); i = j + 1; continue;
+      }
       if (/[a-zA-Z_]/.test(c)) {
         let j = i; while (j < src.length && /[a-zA-Z0-9_]/.test(src[j])) j++;
         toks.push({ t: 'id', v: src.slice(i, j) }); i = j; continue;
@@ -56,6 +62,7 @@ import { VX, U } from './util.js';
       const t = next();
       if (!t) throw new Error('Unexpected end');
       if (t.t === 'num') return { k: 'num', v: t.v };
+      if (t.t === 'str') return { k: 'str', v: t.v };
       if (t.t === 'id') {
         if (peek() && peek().v === '(') {
           next();
@@ -74,6 +81,7 @@ import { VX, U } from './util.js';
     return ast;
   }
 
+  const _deltaStore = {};
   const FN = {
     sin: Math.sin, cos: Math.cos, tan: Math.tan, asin: Math.asin, acos: Math.acos, atan: Math.atan,
     abs: Math.abs, sqrt: Math.sqrt, floor: Math.floor, ceil: Math.ceil, round: Math.round,
@@ -85,6 +93,9 @@ import { VX, U } from './util.js';
     tri: (x) => { const p = (x % 1 + 1) % 1; return p < .5 ? p * 4 - 1 : 3 - p * 4; },
     sq: (x) => ((x % 1 + 1) % 1) < .5 ? -1 : 1,
     if: (c, a, b) => c ? a : b,
+    /* vizzy 1.4 parity */
+    atan2: Math.atan2, hypot: Math.hypot, trunc: Math.trunc,
+    delta: (id, v) => { const k = '_' + id; const prev = _deltaStore[k]; _deltaStore[k] = v; return prev === undefined ? 0 : v - prev; },
     /* easing helpers (vizzy-parity via bezier-easing) */
     easeIn: (x) => x * x * x,
     easeOut: (x) => 1 - Math.pow(1 - U.clamp(x, 0, 1), 3),
@@ -116,6 +127,7 @@ import { VX, U } from './util.js';
   function evalNode(n, env) {
     switch (n.k) {
       case 'num': return n.v;
+      case 'str': return n.v;
       case 'var': { if (n.n in env) return +env[n.n] || 0; if (n.n === 'pi') return Math.PI; if (n.n === 'e') return Math.E; if (n.n === 'true') return 1; if (n.n === 'false') return 0; return 0; }
       case 'neg': return -evalNode(n.a, env);
       case 'if': return evalNode(n.a, env) ? evalNode(n.b, env) : evalNode(n.c, env);

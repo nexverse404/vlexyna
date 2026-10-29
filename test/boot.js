@@ -37,6 +37,8 @@ function stubEngine(window) {
   window.URL.createObjectURL = window.URL.createObjectURL || (() => 'blob:x');
   window.URL.revokeObjectURL = window.URL.revokeObjectURL || (() => { });
   window.ResizeObserver = window.ResizeObserver || class { observe() { } unobserve() { } disconnect() { } };
+  window.VideoEncoder = window.VideoEncoder || class VideoEncoder { constructor() { } configure() { } encode() { } flush() { } close() { } static isConfigSupported() { return Promise.resolve({ supported: true }); } };
+  window.VideoFrame = window.VideoFrame || class VideoFrame { };
 
   class FakeParam { constructor(v = 1) { this.value = v; } setValueAtTime() { } linearRampToValueAtTime() { } exponentialRampToValueAtTime() { } }
   class FakeNode {
@@ -211,6 +213,68 @@ if (VX) {
       const closeX3 = doc.querySelector('.modal-h .ib') || doc.querySelector('.m-h .ib');
       closeX3 && closeX3.click(); await tick2();
     }
+  }
+
+  /* ── v2.3: globals · shy · multi-select · codec · perf · speed ── */
+  {
+    const tick3 = () => new Promise(r => setTimeout(r, 30));
+    const VX2 = chosen.window.VX;
+    /* global variables modal */
+    VX2.project.current.vars = { intensity: .5 };
+    VX2.ui.refreshAll(); await tick3();
+    const kb = new chosen.window.KeyboardEvent('keydown', { key: 'g', bubbles: true, cancelable: true });
+    chosen.window.dispatchEvent(kb); await tick3();
+    let gm = doc.querySelector('.modal') || doc.querySelector('.modal-b');
+    let inModal = gm ? gm.parentElement : null;
+    check(!!gm, 'globals modal opens with G');
+    if (gm) {
+      const inputs = [...(inModal || gm).querySelectorAll('input.tin')];
+      check(inputs.length >= 2 && inputs[0].value === 'intensity', 'globals modal lists project variables');
+      const addBtn = [...(inModal || gm).querySelectorAll('button')].find(b => /Add variable/.test(b.textContent));
+      check(!!addBtn, 'globals add-variable button');
+      if (addBtn) { addBtn.click(); await tick3(); check(VX2.project.current.vars.var2 === 0, 'add-variable writes to project vars'); }
+      const closeG = (inModal || gm).querySelector('.ib'); closeG && closeG.click(); await tick3();
+    }
+    /* shy layers: mark one shy via engine, header button appears, row hides */
+    const l0 = VX2.project.current.layers[0];
+    if (l0) {
+      l0.shy = true; VX2.ui.refreshAll(); await tick3();
+      let shyBtn = [...doc.querySelectorAll('.layers .ph .ib')].find(b => (b.title || '').includes('shy'));
+      check(!!shyBtn, 'show-shy toggle appears when a shy layer exists');
+      const rowsBefore = doc.querySelectorAll('.layers .row').length;
+      check(rowsBefore === VX2.project.current.layers.length - 1, 'shy layer hidden from the list');
+      if (shyBtn) { shyBtn.click(); await tick3(); check(doc.querySelectorAll('.layers .row').length === VX2.project.current.layers.length, 'show-shy reveals it again'); shyBtn.click(); await tick3(); }
+      l0.shy = false; VX2.ui.refreshAll(); await tick3();
+    }
+    /* multi-select: ctrl-click two rows */
+    const rows = doc.querySelectorAll('.layers .row');
+    if (rows.length >= 2) {
+      rows[0].dispatchEvent(new chosen.window.MouseEvent('click', { bubbles: true, ctrlKey: true }));
+      await tick3();
+      rows[1].dispatchEvent(new chosen.window.MouseEvent('click', { bubbles: true, ctrlKey: true }));
+      await tick3();
+      check(doc.querySelectorAll('.layers .row.multi').length === 2, 'ctrl-click multi-selects layers');
+      const del = new chosen.window.KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true });
+      chosen.window.dispatchEvent(del); await tick3();
+      check(VX2.project.current.layers.length < 2 || doc.querySelectorAll('.layers .row.multi').length === 0, 'multi-delete works');
+    }
+    /* export modal: codec select + size estimate */
+    const expBtn2 = [...doc.querySelectorAll('header.bar .btn')].find(b => /Export/.test(b.textContent));
+    expBtn2.click(); await tick3();
+    const mp4Tab = [...doc.querySelectorAll('.x-modes button')].find(b => /MP4 offline/.test(b.textContent));
+    if (mp4Tab && !mp4Tab.disabled) { mp4Tab.click(); await tick3(); }
+    const codecSel = [...doc.querySelectorAll('select')].find(s => [...s.options].some(o => /H\.265/.test(o.textContent)));
+    check(!!codecSel, 'codec picker (H.264/H.265/VP9/AV1) in export');
+    check(doc.body.textContent.includes('≈') || doc.body.textContent.includes('MB') || doc.body.textContent.includes('PNGs'), 'export size estimate shown');
+    const closeE = doc.querySelector('.modal-h .ib') || doc.querySelector('.m-h .ib'); closeE && closeE.click(); await tick3();
+    /* F3 perf overlay */
+    chosen.window.dispatchEvent(new chosen.window.KeyboardEvent('keydown', { key: 'F3', bubbles: true, cancelable: true }));
+    await new Promise(r => setTimeout(r, 420));
+    check(!!doc.querySelector('#stage .perf'), 'F3 toggles the performance overlay');
+    chosen.window.dispatchEvent(new chosen.window.KeyboardEvent('keydown', { key: 'F3', bubbles: true, cancelable: true }));
+    await tick3();
+    /* transport speed select */
+    check(!!doc.querySelector('.transport .speed'), 'playback speed (nightcore) select in transport');
   }
 
   /* the built CSS must carry the breakpoints */

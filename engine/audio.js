@@ -15,6 +15,7 @@ import { VX, U } from './util.js';
       this.raw = { bass: 0, mid: 0, treble: 0, level: 0 };
       this.gains = { bass: 1, mid: 1, treble: 1, level: 1, beat: 1 };  /* reactivity mixer */
       this.beat = 0; this.beatCount = 0; this._lastBeat = -9; this._hist = [];
+      this.tags = {}; this.rate = 1;
       this.peaks = null; this.mic = null; this.micStream = null;
       this.onstate = null; this.onended = null;
     }
@@ -36,6 +37,7 @@ import { VX, U } from './util.js';
 
     async loadArrayBuffer(ab, name) {
       this.ensureCtx();
+      this.tags = A.readTags(ab, name) || {};
       const buf = await this.ctx.decodeAudioData(ab);
       this.setBuffer(buf, name || 'audio', false);
       return buf;
@@ -163,6 +165,7 @@ import { VX, U } from './util.js';
       if (this.playing) return;
       this.src = this.ctx.createBufferSource();
       this.src.buffer = this.buffer; this.src.loop = this.loop;
+      this.src.playbackRate.value = this.rate || 1;
       this.src.connect(this.analyser);
       if (this.offset >= this.duration - .01) this.offset = 0;
       this.startTime = this.ctx.currentTime;
@@ -192,6 +195,10 @@ import { VX, U } from './util.js';
     setVolume(v) { this.volume = v; if (this.gain) this.gain.gain.value = v; }
     setLoop(b) { this.loop = b; if (this.src) this.src.loop = b; }
 
+    setRate(r) {
+      this.rate = U.clamp(+r || 1, .25, 4);
+      if (this.src) { try { this.src.playbackRate.value = this.rate; } catch (e) { } }
+    }
     async enableMic() {
       this.ensureCtx();
       if (this.mic) return true;
@@ -240,6 +247,55 @@ import { VX, U } from './util.js';
       this.beat = Math.min(1, this.beat * Math.pow(0.0005, dt) * (this.gains ? this.gains.beat : 1));
     }
   }
+  /* minimal ID3v2 (mp3) tag reader — enough for title/artist/album/year/genre/bpm.
+     Text variables in text layers read these: {title} {artist} {album} {year} {genre} {bpm} */
+  A.readTags = (ab, name) => {
+    try {
+      const u8 = ab instanceof Uint8Array ? ab : new Uint8Array(ab);
+      if (u8.length < 10 || u8[0] !== 0x49 || u8[1] !== 0x44 || u8[2] !== 0x33) return null;   /* "ID3" */
+      const ver = u8[3];
+      const size = (u8[6] << 21) | (u8[7] << 14) | (u8[8] << 7) | u8[9];
+      let i = 10;
+      const end = Math.min(u8.length, 10 + size);
+      const tags = {};
+      const FRAME = ver >= 3 ? (n) => String.fromCharCode(u8[n], u8[n + 1], u8[n + 2], u8[n + 3]) : (n) => String.fromCharCode(u8[n], u8[n + 1], u8[n + 2]);
+      while (i + (ver >= 3 ? 10 : 6) <= end) {
+        const id = FRAME(i);
+        if (!/^[A-Z0-9]{3,4}$/.test(id)) break;
+        let fsz, hdr;
+        if (ver >= 3) { fsz = (u8[i + 4] << 24) | (u8[i + 5] << 16) | (u8[i + 6] << 8) | u8[i + 7]; hdr = 10; }
+        else { fsz = (u8[i + 4] << 16) | (u8[i + 5] << 8) | u8[i + 6]; hdr = 6; }
+        if (fsz <= 0 || i + hdr + fsz > end) break;
+        const body = u8.subarray(i + hdr, i + hdr + fsz);
+        let text = '';
+        const enc = body[0], d = body.subarray(1);
+        /* dependency-free decoders — TextDecoder is missing in some embedders */
+        const strip = (s) => s.replace(/\0+$/, '');
+        if (enc === 0) text = strip(String.fromCharCode.apply(null, d));                       /* latin-1 */
+        else if (enc === 3) {
+          if (typeof TextDecoder === 'function') { try { text = strip(new TextDecoder('utf-8').decode(d)); } catch (e) { } }
+          if (!text) { let s = ''; for (let k = 0; k < d.length; ) { const b = d[k]; if (b < 0x80) { s += String.fromCharCode(b); k++; } else if (b < 0xE0) { s += String.fromCharCode(((b & 31) << 6) | (d[k + 1] & 63)); k += 2; } else { s += String.fromCharCode(((b & 15) << 12) | ((d[k + 1] & 63) << 6) | (d[k + 2] & 63)); k += 3; } } text = strip(s); }
+        } else {
+          const be = enc === 2 || (d.length >= 2 && d[0] === 0xFE && d[1] === 0xFF);
+          let s = '';
+          for (let k = be ? 0 : (d[0] === 0xFF && d[1] === 0xFE ? 2 : 0); k + 1 < d.length; k += 2) {
+            const code = be ? (d[k] << 8) | d[k + 1] : (d[k + 1] << 8) | d[k];
+            if (code) s += String.fromCharCode(code);
+          }
+          text = strip(s);
+        }
+        if (id === 'TIT2' || id === 'TT2') tags.title = text;
+        else if (id === 'TPE1' || id === 'TP1') tags.artist = text;
+        else if (id === 'TALB' || id === 'TAL') tags.album = text;
+        else if (id === 'TYER' || id === 'TDRC' || id === 'TYE') tags.year = (text.match(/\d{4}/) || ['', ''])[1] || text;
+        else if (id === 'TCON' || id === 'TCO') tags.genre = text.replace(/^\((\d+)\)$/, '');
+        else if (id === 'TBPM' || id === 'TBP') tags.bpm = text;
+        i += hdr + fsz;
+      }
+      tags.filename = (name || '').replace(/\.[^.]+$/, '');
+      return tags;
+    } catch (e) { return null; }
+  };
   A.AudioEngine = AudioEngine;
   A.engine = new AudioEngine();
 })();

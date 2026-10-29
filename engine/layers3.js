@@ -103,4 +103,108 @@ import { VX, U } from './util.js';
       x.restore();
     },
   });
+
+  /* ============ BUTTERCHURN (MilkDrop-style WebGL visualizer) ============
+     The crown jewel of vizzy's item list — butterchurn (MIT, jberg) renders
+     classic MilkDrop presets. Lazy-loaded; needs WebGL. Preset list loads from
+     butterchurn-presets' Minimal pack (~190 KB) with graceful fallback. */
+  L.register({
+    id: 'butterchurn', name: 'Butterchurn', cat: 'Visuals', icon: 'spark',
+    desc: 'MilkDrop-style preset visualizer (butterchurn) — hundreds of classic presets',
+    defaults: () => ({ preset: '', blendRate: .5, react: 1, quality: .75, presetPack: 'minimal' }),
+    params: [
+      P.sel('preset', 'Preset', () => BC.presetOptions(), ''),
+      P.num('blendRate', 'Preset blend time (s)', .1, 4, .1, .5),
+      P.num('react', 'Audio drive', 0, 2, .05, 1),
+      P.num('quality', 'Resolution scale', .2, 1, .05, .75),
+      P.group('Pack', [
+        P.sel('presetPack', 'Preset pack', [['minimal', 'Minimal (fast load)'], ['base', 'Base (hundreds)']], 'minimal'),
+        P.act('bc_rand', 'Random preset now', (l) => { const o = BC.presetOptions(); if (o.length) { l.props.preset = o[Math.floor(Math.random() * o.length)][0]; l._bcDirty = true; } }),
+      ]),
+    ],
+    draw(x, st) {
+      const { W, H, p, t, a, layer, dt } = st;
+      if (!BC.ready() && !BC.loading()) BC.load(p.presetPack);
+      const bc = layer._bc;
+      if (!bc) { /* not loaded (or no WebGL) — honest placeholder */
+        x.save();
+        x.fillStyle = '#0a0c14'; x.fillRect(-W / 2, -H / 2, W, H);
+        x.fillStyle = '#8b93a8'; x.font = `${34 * H / 1080}px sans-serif`; x.textAlign = 'center';
+        x.fillText(BC.failed() ? 'Butterchurn unavailable (needs WebGL)' : 'Loading Butterchurn…', 0, 0);
+        x.restore();
+        return;
+      }
+      /* preset switch */
+      const opts = BC.presetOptions();
+      let name = p.preset;
+      if (!name && opts.length) { name = opts[0][0]; }
+      if (layer._bcPreset !== name) {
+        layer._bcPreset = name;
+        const preset = BC.presets()[name];
+        if (preset) bc.loadPreset(preset, p.blendRate);
+      }
+      /* feed audio: butterchurn wants time-domain byte arrays (1024, 128-centered) */
+      const eng = VX.audio.engine;
+      const wave = BC.waveBytes(eng);
+      const drive = U.clamp(p.react, 0, 2);
+      try {
+        bc.setRendererSize(Math.max(64, Math.round(W * U.clamp(p.quality, .2, 1))), Math.max(64, Math.round(H * U.clamp(p.quality, .2, 1))));
+        bc.updateAudio(wave, wave, wave);
+        bc.render({
+          audioLevels: { bass: a.bass * drive, mid: a.mid * drive, treble: a.treble * drive, volume: a.level * drive },
+          elapsedTime: t,
+        });
+        x.drawImage(BC._canvas, -W / 2, -H / 2, W, H);
+      } catch (e) {
+        layer._bc = null; layer._bcPreset = null;
+      }
+    },
+  });
+
+  const BC = VX.bc = {
+    _state: 'idle', _bc: null, _presets: {}, _canvas: null, _gl: null,
+    load(pack) {
+      if (this._state === 'loading' || this._state === 'ready') return;
+      this._state = 'loading';
+      /* WebGL canvas first */
+      try {
+        this._canvas = document.createElement('canvas');
+        this._gl = this._canvas.getContext('webgl', { antialias: false, alpha: false, preserveDrawingBuffer: true });
+        if (!this._gl) throw new Error('no webgl');
+      } catch (e) { this._state = 'failed'; return; }
+      Promise.all([
+        import('butterchurn').then(m => {
+          const mod = m.default && m.default.default ? m.default.default : (m.default || m);
+          this._bc = new mod(null, this._canvas, { width: 640, height: 360, pixelRatio: 1, textureRatio: 1 });
+        }),
+        (pack === 'base'
+          ? import('butterchurn-presets').then(m => (m.default && m.default.default ? m.default.default : (m.default || m)))()
+          : import('butterchurn-presets/lib/butterchurnPresetsMinimal.min.js').then(m => (m.default && m.default.default ? m.default.default : (m.default || m)))()
+        ).catch(() => ({})),
+      ]).then(([, presets]) => {
+        this._presets = presets || {};
+        this._state = 'ready';
+        VX.ui && VX.ui.refreshAll && VX.ui.refreshAll();
+      }).catch(() => { this._state = 'failed'; });
+    },
+    /* engine wave (-1..1 Float32, 2048) → butterchurn time-domain bytes (1024) */
+    waveBytes(eng) {
+      const out = this._wb || (this._wb = new Uint8Array(1024));
+      const w = eng && eng.wave;
+      if (w && w.length) {
+        const step = w.length / 1024;
+        for (let i = 0; i < 1024; i++) {
+          const v = w[Math.floor(i * step)] || 0;
+          out[i] = Math.max(0, Math.min(255, 128 + v * 127));
+        }
+      } else out.fill(128);
+      return out;
+    },
+    ready: () => BC._state === 'ready' && !!BC._bc,
+    loading: () => BC._state === 'loading',
+    failed: () => BC._state === 'failed',
+    presets: () => BC._presets || {},
+    presetOptions: () => Object.keys(BC._presets || {}).sort().map(n => [n, n]),
+
+  };
 })();

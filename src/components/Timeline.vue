@@ -14,7 +14,7 @@ const pps = computed(() => ZOOMS[zi.value]); /* px per second */
 const dur = computed(() => S.dur || 30);
 const width = computed(() => Math.max(600, dur.value * pps.value + 40));
 
-const layers = computed(() => { S.rev; return S.vx?.project?.current ? [...S.vx.project.current.layers].reverse() : []; });
+const layers = computed(() => { S.rev; const all = S.vx?.project?.current ? [...S.vx.project.current.layers].reverse() : []; return S.ui.showShy ? all : all.filter(l => !l.shy); });
 
 function drawRuler() {
   const c = ruler.value; if (!c) return;

@@ -11,7 +11,25 @@ const layersRev = computed(() => {
   return S.vx?.project?.current ? [...S.vx.project.current.layers].reverse() : [];
 });
 
-function select(id) { S.sel = id === S.sel ? null : id; }
+function select(id, ev) {
+  if (ev && (ev.ctrlKey || ev.metaKey || ev.shiftKey)) {
+    const i = S.multi.indexOf(id);
+    if (i >= 0) S.multi.splice(i, 1); else S.multi.push(id);
+    if (S.multi.length === 1) S.sel = id;
+    return;
+  }
+  S.multi = [];
+  S.sel = id === S.sel ? null : id;
+}
+const hasShy = computed(() => {
+  S.rev;
+  return !!(S.vx?.project?.current?.layers || []).some(l => l.shy);
+});
+const visibleLayers = computed(() => {
+  S.rev;
+  const all = S.vx?.project?.current ? [...S.vx.project.current.layers].reverse() : [];
+  return S.ui.showShy ? all : all.filter(l => !l.shy);
+});
 
 function addLayer(type) {
   const VX = S.vx;
@@ -59,6 +77,7 @@ function layerMenu(e, l) {
     { label: 'Rename…', ic: 'edit', fn: () => { renaming.value = l.id; renameVal.value = l.name; } },
     { sep: 'Timing' },
     { label: 'Split at playhead', ic: 'clock', fn: () => splitAtPlayhead(l) },
+    { label: l.shy ? 'Unshy layer' : 'Shy layer (hide from list, keep rendering)', ic: 'eyeOff', fn: () => { l.shy = !l.shy; S.vx.project.autosave(); S.rev++; } },
     { sep: '' },
     { label: 'Delete', ic: 'trash', danger: true, hint: 'Del', fn: () => { VX.project.current.layers.splice(VX.project.current.layers.findIndex(x => x.id === l.id), 1); S.sel = null; VX.project.snapshot('delete layer'); S.rev++; } },
   ], { wide: true });
@@ -92,15 +111,17 @@ function onDragEnd() { if (dragId !== null) { dragId = null; S.vx.project.snapsh
       <span class="ph-t">Layers</span>
       <span class="lab">{{ layersRev.length }}</span>
       <div class="spacer"></div>
+      <button v-if="hasShy" class="ib" :class="{ on: S.ui.showShy }" @click="S.ui.showShy = !S.ui.showShy"
+              title="Show/hide shy layers" v-html="U.icon('eye', 14)"></button>
       <button class="ib" @click="addMenu" title="Add layer" v-html="U.icon('add')"></button>
       <button class="ib only-narrow" @click="S.ui.left = false" title="Close panel" v-html="U.icon('close')"></button>
     </div>
     <div class="plist">
-      <p class="empty" v-if="!layersRev.length">Nothing here yet.<br>Use <b>+</b> above — start with the demo beat and a generator.</p>
-      <div v-for="l in layersRev" :key="l.id" class="row"
-           :class="{ sel: S.sel === l.id, lock: l.locked }"
+      <p class="empty" v-if="!visibleLayers.length">Nothing here yet.<br>Use <b>+</b> above — start with the demo beat and a generator.</p>
+      <div v-for="l in visibleLayers" :key="l.id" class="row"
+           :class="{ sel: S.sel === l.id, multi: S.multi.includes(l.id), lock: l.locked, shy: l.shy }"
            draggable="true"
-           @click="select(l.id)"
+           @click="select(l.id, $event)"
            @contextmenu="layerMenu($event, l)"
            @dragstart="onDragStart($event, l)"
            @dragover="onDragOver($event, l)"
@@ -121,6 +142,8 @@ function onDragEnd() { if (dragId !== null) { dragId = null; S.vx.project.snapsh
 
 <style scoped>
 .layers { grid-area: left; display: flex; flex-direction: column; min-height: 0; }
+.row.multi { outline: 1px dashed rgba(124, 108, 240, .7); outline-offset: -1px; }
+.row.shy .row-n { opacity: .55; font-style: italic; }
 @media (max-width: 1220px) {
   .layers { display: flex; }   /* keep flex layout while the .drawer class makes it an overlay */
 }

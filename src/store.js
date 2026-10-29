@@ -13,7 +13,9 @@ export const S = reactive({
   toasts: [],
   audio: { name: '', has: false, micOn: false, muted: false, vol: .9 },
   bands: { bass: 0, mid: 0, treble: 0, level: 0, beat: 0 },
-  ui: { left: false, right: false, tl: true },   /* drawer/collapse state — only takes effect on narrow screens */
+  ui: { left: false, right: false, tl: true, showShy: false },   /* drawer/collapse + shy-layer state */
+  multi: [],                                            /* multi-selected layer ids */
+  perf: false,                                          /* F3 performance overlay */
   exporting: false, expProg: 0, expLabel: '',
   canUndo: false, canRedo: false, savedFlash: 0,
 });

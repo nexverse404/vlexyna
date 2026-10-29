@@ -7,6 +7,24 @@ import { U } from '../../engine/util.js';
 const stage = ref(null), inner = ref(null), cv = ref(null);
 let fw = 0, fh = 0;
 
+/* F3 performance overlay — frame pacing measured locally */
+const perfLine = ref('');
+let lastT = 0, perfAcc = 0, perfN = 0;
+function perfTick(now) {
+  if (S.perf) {
+    const dt = lastT ? now - lastT : 16;
+    perfAcc += dt; perfN++;
+    if (perfN >= 20) {
+      const avg = perfAcc / perfN;
+      const layers = S.vx?.project?.current?.layers?.length || 0;
+      perfLine.value = `${(1000 / avg).toFixed(0)} fps · ${avg.toFixed(1)} ms/frame · ${layers} layers · ${S.width}×${S.height} · zoom ${zoomLabel.value}`;
+      perfAcc = 0; perfN = 0;
+    }
+  }
+  lastT = now;
+  requestAnimationFrame(perfTick);
+}
+
 /* stage zoom: 0 = fit-to-view, otherwise a scale factor on project pixels */
 const ZOOMS = [0, .25, .5, 1, 2];
 const zoom = ref(0);
@@ -50,6 +68,7 @@ watch(zoom, () => fit());
 
 let ro = null;
 onMounted(async () => {
+  requestAnimationFrame(perfTick);
   await boot(cv.value);
   fit();
   ro = new ResizeObserver(fit);
@@ -136,6 +155,7 @@ function onDown(e) {
         </template>
       </div>
     </div>
+    <div class="perf mono" v-if="S.perf && !S.exporting">{{ perfLine }}</div>
     <div class="zoombar" v-if="!S.exporting">
       <button class="ib tiny" @click="zoomStep(-1)" title="Zoom out">−</button>
       <button class="ib tiny zoom-cur" @click="zoom = 0" title="Fit to view">{{ zoomLabel }}</button>
@@ -177,6 +197,11 @@ function onDown(e) {
   position: absolute; left: 14px; top: -34px; white-space: nowrap;
   font-size: 10px; color: var(--ink2); background: rgba(8, 10, 14, .8);
   padding: 1px 6px; border-radius: 4px; border: 1px solid var(--line2);
+}
+.perf {
+  position: absolute; left: 12px; bottom: 10px; z-index: 6; pointer-events: none;
+  font-size: 10.5px; color: #9fe8c8; background: rgba(6, 12, 10, .8);
+  border: 1px solid rgba(62, 207, 142, .3); border-radius: 6px; padding: 3px 9px;
 }
 .zoombar {
   position: absolute; right: 12px; bottom: 10px; z-index: 6;

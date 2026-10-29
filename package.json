@@ -1,7 +1,7 @@
 {
   "name": "vlexyna-studio",
-  "version": "2.2.0",
-  "description": "Vlexyna Studio — free, unlimited, audio-reactive music video studio. Complete enhanced vizzy.io alternative. Tauri + Vite + Vue.",
+  "version": "2.3.0",
+  "description": "Vlexyna Studio \u2014 free, unlimited, audio-reactive music video studio. Complete enhanced vizzy.io alternative. Tauri + Vite + Vue.",
   "private": true,
   "type": "module",
   "scripts": {
@@ -16,6 +16,8 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4",
+    "butterchurn": "^2.6.7",
+    "butterchurn-presets": "^2.4.7",
     "gifenc": "^1.0.3",
     "lottie-web": "^5.13.0",
     "mediabunny": "^1.63.0",

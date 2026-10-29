@@ -7,8 +7,13 @@ import { U } from '../../engine/util.js';
 const M = computed(() => S.modal);
 
 /* ───────── export ───────── */
-const exp = ref({ mode: 'video', includeAudio: true, monitor: false, bitrate: 16, fps: 60 });
+const exp = ref({ mode: 'video', includeAudio: true, monitor: false, bitrate: 16, fps: 60, codec: 'avc' });
 const gif = ref({ width: 480, fps: 12 });
+const sizeEstimate = computed(() => {
+  if (exp.value.mode === 'frames') return `${Math.ceil(S.dur * Math.min(exp.value.fps, 30))} PNGs`;
+  const mb = (exp.value.bitrate * 1e6 * S.dur) / 1e6;
+  return mb > 1024 ? `≈ ${(mb / 1024).toFixed(1)} GB` : `≈ ${mb.toFixed(0)} MB`;
+});
 const canAudio = computed(() => S.audio.has);
 const canOffline = computed(() => typeof window !== 'undefined' && !!window.VideoEncoder);
 function setProgress(p, label) { S.expProg = p; S.expLabel = label || ''; }
@@ -33,6 +38,7 @@ function startOffline() {
   Promise.resolve(VX.offline.exportMp4({
     bitrate: exp.value.bitrate * 1e6,
     fps: exp.value.fps,
+    codec: exp.value.codec,
   })).finally(() => { S.exporting = false; VX.app.onExportProgress = null; syncAll(); });
 }
 function startFrames() {
@@ -55,6 +61,28 @@ function cancelExport() {
   const VX = S.vx;
   if (VX.offline && VX.offline.active) VX.offline.cancel();
   else VX.exporter.cancel();
+}
+
+/* ───────── global variables ───────── */
+const gvars = ref([]);
+watch(() => S.modal?.type, (t) => {
+  if (t === 'globals') {
+    const v = S.vx?.project?.current?.vars || {};
+    gvars.value = Object.entries(v).map(([name, value]) => ({ name, value: String(value) }));
+  }
+}, { immediate: true });
+function addVar() { gvars.value.push({ name: 'var' + (gvars.value.length + 1), value: '0' }); saveVars(); }
+function delVar(i) { gvars.value.splice(i, 1); saveVars(); }
+function saveVars() {
+  const VX = S.vx;
+  const out = {};
+  for (const g of gvars.value) {
+    const n = g.name.trim();
+    if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(n)) out[n] = +g.value || 0;
+  }
+  if (!('v1' in out)) { /* keep template vars alive */ }
+  VX.project.current.vars = out;
+  VX.project.snapshot('global variables');
 }
 
 /* ───────── audio reactivity mixer ───────── */
@@ -391,7 +419,15 @@ function welcomeTemplates() { S.modal = { type: 'templates' }; }
               </button>
             </div>
             <div class="x-row"><span>Canvas</span><b class="mono">{{ S.width }} × {{ S.height }} @ {{ S.fpsProj }} fps</b></div>
-            <div class="x-row"><span>Duration</span><b class="mono">{{ fmtTime(S.dur) }}</b></div>
+            <div class="x-row"><span>Duration</span><b class="mono">{{ fmtTime(S.dur) }} · {{ sizeEstimate }}</b></div>
+            <div class="x-row" v-if="exp.mode === 'mp4'"><span>Video codec</span>
+              <select v-model="exp.codec">
+                <option value="avc">H.264 — everywhere</option>
+                <option value="hevc">H.265 — smaller</option>
+                <option value="vp9">VP9 — WebM</option>
+                <option value="av1">AV1 — cutting edge</option>
+              </select>
+            </div>
             <div class="x-row" v-if="exp.mode === 'video'"><span>Audio track</span>
               <label class="sw-row"><input type="checkbox" v-model="exp.includeAudio" :disabled="!canAudio"> include audio</label>
             </div>
@@ -443,6 +479,21 @@ function welcomeTemplates() { S.modal = { type: 'templates' }; }
         </template>
 
         <!-- HELP -->
+        <!-- GLOBAL VARIABLES -->
+        <template v-else-if="M.type === 'globals'">
+          <div class="m-h"><h3>Global variables</h3><button class="ib" @click="closeModal()" v-html="U.icon('close')"></button></div>
+          <p class="modal-note">Project-wide knobs: set a value once, use it everywhere. Reference them by name in any <b>ƒ math automation</b> (<code>intensity * bass</code>) and in shaders as <code>uG_name</code>. Change one value, everything follows.</p>
+          <div class="gv-row" v-for="(g, i) in gvars" :key="i">
+            <input class="tin gv-n" v-model="g.name" @change="saveVars" spellcheck="false" placeholder="name">
+            <input class="tin gv-v mono" v-model="g.value" @change="saveVars" spellcheck="false" placeholder="0">
+            <button class="ib danger" @click="delVar(i)" v-html="U.icon('trash', 13)"></button>
+          </div>
+          <div class="btn-row end">
+            <button class="btn" @click="addVar"><span v-html="U.icon('plus', 12)"></span>Add variable</button>
+          </div>
+          <p class="hint">Names must be valid identifiers (letters, digits, _). Values are numbers.</p>
+        </template>
+
         <!-- REACTIVITY MIXER -->
         <template v-else-if="M.type === 'reactivity'">
           <div class="m-h"><h3>Audio reactivity</h3><button class="ib" @click="closeModal()" v-html="U.icon('close')"></button></div>
@@ -482,6 +533,9 @@ function welcomeTemplates() { S.modal = { type: 'templates' }; }
               <div class="sc"><span>E</span> export video</div>
               <div class="sc"><span>T</span> templates</div>
               <div class="sc"><span>R</span> audio reactivity mixer</div>
+              <div class="sc"><span>G</span> global variables</div>
+              <div class="sc"><span>F3</span> performance overlay</div>
+              <div class="sc"><span>Ctrl+click</span> multi-select layers</div>
               <div class="sc"><span>Ctrl+scroll</span> zoom the stage</div>
               <div class="sc"><span>?</span> this dialog</div>
               <h4>Good to know</h4>
@@ -601,6 +655,9 @@ function welcomeTemplates() { S.modal = { type: 'templates' }; }
 .x-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; color: var(--ink2); gap: 10px; }
 .x-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 7px; margin-bottom: 12px; }
 .rxv { min-width: 44px; text-align: right; color: var(--ink2); font-size: 11px; }
+.gv-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+.gv-n { width: 140px; }
+.gv-v { width: 110px; }
 .tpl { position: relative; }
 .tpl-del {
   position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; border-radius: 6px;

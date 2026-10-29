@@ -19,6 +19,21 @@ function seek(e) {
 }
 function togglePlay() { S.vx.audio.engine.resume().then(() => S.vx.app.togglePlay()); }
 function toggleLoop() { S.vx.app.loop = !S.vx.app.loop; S.vx.audio.engine.setLoop(S.vx.app.loop); }
+function setRate(e) { S.vx.audio.engine.setRate(+e.target.value); }
+function onVolWheel(e) {
+  e.preventDefault();
+  const cur = S.audio.vol * 100;
+  const next = Math.max(0, Math.min(100, cur + (e.deltaY < 0 ? 5 : -5)));
+  S.audio.vol = next / 100;
+  S.vx.audio.engine.setVolume(next / 100);
+}
+const tagLine = computed(() => {
+  const t = S.vx?.audio?.engine?.tags || {};
+  const parts = [];
+  if (t.title) parts.push(t.title);
+  if (t.artist) parts.push(t.artist);
+  return parts.join(' — ');
+});
 function setVol(e) {
   const v = +e.target.value / 100;
   S.vx.audio.engine.setVolume(v);
@@ -87,7 +102,7 @@ const fmt = (s) => {
     <button class="ib" :class="{ on: S.vx?.app?.loop }" @click="toggleLoop" title="Loop (L)" v-html="U.icon('loop')"></button>
     <div class="vol">
       <button class="ib" @click="toggleMute" :title="S.audio.muted ? 'Unmute' : 'Mute monitor'" v-html="U.icon(S.audio.muted ? 'volumeOff' : 'volume')"></button>
-      <input type="range" min="0" max="100" :value="S.audio.vol * 100" @input="setVol" title="Monitor volume">
+      <input type="range" min="0" max="100" :value="S.audio.vol * 100" @input="setVol" @wheel="onVolWheel" title="Monitor volume — scroll to adjust">
     </div>
     <button class="ib" :class="{ on: isTweaked }" @click="openModal('reactivity')" title="Audio reactivity mixer (R)" v-html="U.icon('bars')"></button>
     <button class="ib" :class="{ on: S.audio.micOn }" @click="toggleMic" title="Live microphone mode (M)" v-html="U.icon('mic')"></button>
@@ -95,7 +110,10 @@ const fmt = (s) => {
     <div class="audio">
       <button class="btn small" @click="loadDemo" title="Synthesize a demo track in your browser"><span v-html="U.icon('spark', 12)"></span>Demo beat</button>
       <button class="btn small" @click="pickAudio"><span v-html="U.icon('music', 12)"></span>Load audio</button>
-      <span class="aname" :title="S.audio.name">{{ S.audio.name || 'no audio' }}</span>
+      <select class="speed" :value="String(S.vx?.audio?.engine?.rate ?? 1)" @change="setRate" title="Playback speed — nightcore / slowed">
+        <option value="0.75">0.75×</option><option value="1">1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option>
+      </select>
+      <span class="aname" :title="S.audio.name">{{ tagLine || S.audio.name || 'no audio' }}</span>
     </div>
   </div>
 </template>
@@ -119,4 +137,5 @@ const fmt = (s) => {
 .vol input { width: 70px; }
 .audio { display: flex; align-items: center; gap: 7px; min-width: 0; }
 .aname { color: var(--ink3); font-size: 11.5px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.speed { padding: 3px 4px; font-size: 11px; }
 </style>

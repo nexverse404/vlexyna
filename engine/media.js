@@ -150,6 +150,7 @@ import { VX, U } from './util.js';
       P.sel('fit', 'Fit', [['cover', 'Cover'], ['contain', 'Contain']], 'cover'),
       P.num('size', 'Size', .05, 3, .01, 1, { auto: true }),
       P.num('rate', 'Playback rate', .1, 3, .05, 1),
+      P.bool('loop', 'Loop video', true),
       P.num('pulse', 'Bass pulse', 0, 1, .01, 0),
       P.num('spin', 'Spin (°/s)', -360, 360, 1, 0),
       P.num('offset', 'Clip start offset (s)', 0, 300, .1, 0),
@@ -165,6 +166,7 @@ import { VX, U } from './util.js';
         return;
       }
       const v = asset.el;
+      v.loop = p.loop !== false;
       const local = Math.max(0, (t - (layer.start || 0) - p.startAt)) * p.rate + p.offset;
       const dur = v.duration || 1;
       const want = v.loop ? local % dur : Math.min(local, dur - .05);
@@ -293,7 +295,17 @@ import { VX, U } from './util.js';
     ],
     draw(x, st) {
       const { p } = st;
-      const txt = p.uppercase ? p.text.toUpperCase() : p.text;
+      let txt = p.text;
+      /* text variables — audio tags, vizzy-style: {title} {artist} {album} {year} {genre} {bpm} {filename} */
+      if (txt && txt.includes('{')) {
+        const eng = VX.audio && VX.audio.engine;
+        const tags = (eng && eng.tags) || {};
+        txt = txt.replace(/\{(title|artist|album|year|genre|bpm|filename)\}/g, (m, k) => {
+          if (k === 'filename') return (eng && eng.name || '').replace(/\.[^.]+$/, '');
+          return tags[k] != null && tags[k] !== '' ? String(tags[k]) : '';
+        });
+      }
+      if (p.uppercase) txt = txt.toUpperCase();
       drawTextBlock(x, st, p, txt);
     }
   });
@@ -342,6 +354,7 @@ import { VX, U } from './util.js';
       style: 'pop', popAmt: .2, holdEnd: 1.5, uppercase: false, speedMul: 1
     }),
     params: [
+      P.num('speedMul', 'Timing speed', .25, 4, .05, 1),
       P.act('edit', '✎ Edit lyrics & timing', (l) => VX.ui.openLyricsEditor(l)),
       P.sel('style', 'Line style', [['pop', 'Pop in'], ['fade', 'Fade'], ['slide', 'Slide up'], ['zoom', 'Zoom'], ['karaoke', 'Karaoke sweep']], 'pop'),
       P.num('popAmt', 'Style amount', 0, 1, .01, .2),

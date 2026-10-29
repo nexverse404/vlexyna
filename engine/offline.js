@@ -183,12 +183,17 @@ import { VX, U } from './util.js';
       const c = document.createElement('canvas');
       c.width = proj.width; c.height = proj.height;
 
-      /* codec chain: H.264/MP4 first, then VP9/WebM */
-      const chains = [
-        { format: () => new mb.Mp4OutputFormat({ fastStart: 'in-memory' }), video: 'avc', audio: 'aac', ext: 'mp4', mime: 'video/mp4' },
-        { format: () => new mb.WebMOutputFormat(), video: 'vp9', audio: 'opus', ext: 'webm', mime: 'video/webm' },
-      ];
-      let output = null, videoSource = null, audioSource = null, ext = 'mp4', mime = 'video/mp4';
+      /* codec chain: user choice first (H.264/H.265/VP9/AV1), then sensible fallbacks */
+      const ALL = {
+        avc:  { format: () => new mb.Mp4OutputFormat({ fastStart: 'in-memory' }), audio: 'aac', ext: 'mp4', mime: 'video/mp4' },
+        hevc: { format: () => new mb.Mp4OutputFormat({ fastStart: 'in-memory' }), audio: 'aac', ext: 'mp4', mime: 'video/mp4' },
+        av1:  { format: () => new mb.Mp4OutputFormat({ fastStart: 'in-memory' }), audio: 'aac', ext: 'mp4', mime: 'video/mp4' },
+        vp9:  { format: () => new mb.WebMOutputFormat(), audio: 'opus', ext: 'webm', mime: 'video/webm' },
+      };
+      const wanted = ALL[opts.codec] ? opts.codec : 'avc';
+      const order = [wanted, ...Object.keys(ALL).filter(k => k !== wanted)];
+      const chains = order.map(k => ({ video: k, ...ALL[k] }));
+      let output = null, videoSource = null, audioSource = null, ext = 'mp4', mime = 'video/mp4', videoCodec = wanted;
       for (const ch of chains) {
         try {
           output = new mb.Output({ format: ch.format(), target: new mb.BufferTarget() });
@@ -199,7 +204,7 @@ import { VX, U } from './util.js';
             const a = new mb.AudioBufferSource({ codec: ch.audio, quality: new mb.Quality(192000) });
             if (!a.canEncode || (await a.canEncode())) { output.addAudioTrack(a); audioSource = a; }
           }
-          ext = ch.ext; mime = ch.mime;
+          ext = ch.ext; mime = ch.mime; videoCodec = ch.video;
           break;
         } catch (e) { output = null; videoSource = null; audioSource = null; }
       }
@@ -226,7 +231,7 @@ import { VX, U } from './util.js';
       if (cancelled) { U.toast('Offline export cancelled'); return; }
       const blob = new Blob([output.target.buffer], { type: mime });
       U.download(blob, `${name || 'vlexyna'}_${proj.height}p.${ext}`);
-      U.toast(`Offline ${ext.toUpperCase()} exported — ${U.fmtBytes(blob.size)}, every frame exact`);
+      U.toast(`Offline ${ext.toUpperCase()} (${videoCodec.toUpperCase()}) exported — ${U.fmtBytes(blob.size)}, every frame exact`);
     } catch (e) {
       U.toast('Offline export failed: ' + (e && e.message || e), 'err');
       if (window.console) console.warn('[vlexyna] offline export', e);

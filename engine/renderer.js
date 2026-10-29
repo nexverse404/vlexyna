@@ -11,11 +11,18 @@ import { VX, U } from './util.js';
     return c;
   };
 
-  R.envFor = (t, dt, a, vars) => ({
-    t, dt, bass: a.bass, mid: a.mid, treble: a.treble, level: a.level, beat: a.beat,
-    pi: Math.PI, e: Math.E,
-    v1: vars.v1 || 0, v2: vars.v2 || 0, v3: vars.v3 || 0, v4: vars.v4 || 0
-  });
+  R.envFor = (t, dt, a, vars) => {
+    const env = {
+      t, dt, bass: a.bass, mid: a.mid, treble: a.treble, level: a.level, beat: a.beat,
+      pi: Math.PI, e: Math.E,
+      v1: vars.v1 || 0, v2: vars.v2 || 0, v3: vars.v3 || 0, v4: vars.v4 || 0
+    };
+    /* named global variables — usable directly in every math automation */
+    for (const k of Object.keys(vars)) {
+      if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(k) && !(k in env)) env[k] = +vars[k] || 0;
+    }
+    return env;
+  };
 
   R.autoDelta = (layer, key, env) => {
     const a = layer.auto && layer.auto[key];
