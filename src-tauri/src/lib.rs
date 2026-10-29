@@ -69,6 +69,9 @@ mod tests {
     #[test]
     fn frontend_placeholder_or_build_exists() {
         let dist = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../dist/index.html");
-        assert!(dist.exists(), "dist/index.html missing (build.rs should create it)");
+        assert!(
+            dist.exists(),
+            "dist/index.html missing (build.rs should create it)"
+        );
     }
 }
