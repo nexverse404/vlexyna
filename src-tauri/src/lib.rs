@@ -23,7 +23,10 @@ mod tests {
         let c = conf();
         assert_eq!(c["productName"], "Vlexyna");
         assert_eq!(c["version"], "2.0.0");
-        assert!(c["identifier"].as_str().unwrap().contains('.'), "identifier must be reverse-DNS");
+        assert!(
+            c["identifier"].as_str().unwrap().contains('.'),
+            "identifier must be reverse-DNS"
+        );
         assert_eq!(c["build"]["frontendDist"], "../dist");
         assert_eq!(c["build"]["devUrl"], "http://localhost:1420");
         assert_eq!(c["build"]["beforeDevCommand"], "npm run dev");
