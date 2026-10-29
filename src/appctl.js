@@ -31,6 +31,7 @@ VX.app = {
     VX.app.time = Math.max(0, Math.min(VX.app.duration(), t));
     if (VX.audio.engine.buffer) VX.audio.engine.seek(VX.app.time);
     S.time = VX.app.time;
+    VX.renderer && VX.renderer.invalidate();   /* scrubbing while paused redraws */
   },
   onFrame(dt) {
     S.time = VX.app.time;

@@ -8,7 +8,7 @@ import { VX, U } from './util.js';
 
   PR.blank = () => ({
     id: U.uid(), name: 'Untitled', width: 1920, height: 1080, fps: 60,
-    layers: [], post: [], vars: { v1: 0, v2: 0, v3: 0, v4: 0 },
+    layers: [], post: [], analyzers: [], vars: { v1: 0, v2: 0, v3: 0, v4: 0 },
     camera: { on: false, zoom: 1, x: 0, y: 0, rot: 0, zoomBass: 0, zoomBeat: 0, rotBeat: 0, shake: 0, shakeBeat: 0, rotShake: 1 },
     duration: 30, audioName: '', updated: Date.now()
   });
@@ -63,6 +63,7 @@ import { VX, U } from './util.js';
     PR.current.id = id || PR.current.id;
     PR.current.updated = Date.now();
     PR.ensureCamera(PR.current);
+    if (!Array.isArray(PR.current.analyzers)) PR.current.analyzers = [];   /* v3 migration */
     VX.ui && VX.ui.refreshAll();
     if (wasPlaying) VX.app.play();
     PR.autosave();

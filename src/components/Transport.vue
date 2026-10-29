@@ -62,7 +62,10 @@ function drawSpec() {
   if (c && S.vx) {
     const eng = S.vx.audio.engine;
     const x = c.getContext('2d');
-    const w = c.width = c.clientWidth * 2, h = c.height = c.clientHeight * 2;
+    /* resize only when the element actually changed size — reallocating the
+       canvas every frame was a serious, constant layout/perf drain */
+    const w = Math.max(2, Math.round(c.clientWidth * 2)), h = Math.max(2, Math.round(c.clientHeight * 2));
+    if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
     x.clearRect(0, 0, w, h);
     if (eng.freq && eng.freq.length) {
       const n = 48;

@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildSync } from 'esbuild';
 import { JSDOM } from 'jsdom';
-import { createCanvas } from '@napi-rs/canvas';
+import { createCanvas, Image } from '@napi-rs/canvas';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(path.dirname(fileURLToPath(import.meta.url)), 'out');
@@ -13,6 +13,7 @@ fs.mkdirSync(OUT, { recursive: true });
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/', runScripts: 'outside-only', pretendToBeVisual: true });
 const window = dom.window;
+window.Image = Image;   /* real image decoding for asset elements */
 
 /* real canvases whenever the app creates one */
 const origCreate = window.document.createElement.bind(window.document);
@@ -79,7 +80,7 @@ const shots = [
   ['hiphop', 'Hip-Hop Bars'], ['lofi', 'Lo-Fi Study'], ['dnb', 'DnB Rush'], ['metal', 'Metal Storm'],
   ['jazz', 'Jazz Club'], ['ambient', 'Ambient Drift'], ['podcast', 'Podcast Pro'], ['dubstep', 'Dubstep Drop'],
   ['trailer', 'Cinematic Trailer'], ['kpop', 'K-Pop Sparkle'], ['reggaeton', 'Reggaeton Heat'], ['gospel', 'Gospel Light'],
-  ['bassedit', 'Bass Boost Edit'], ['shiver', 'Magic Shivers'],
+  ['bassedit', 'Bass Boost Edit'], ['shiver', 'Magic Shivers'], ['neonwave', 'Neon Waveform'],
 ];
 for (const [slug, name] of shots) {
   const t = VX.templates.list.find(x => x.name === name);
@@ -263,4 +264,62 @@ for (const [slug, name] of shots) {
   eng.bands = { bass: 0, mid: 0, treble: 0, level: 0 };
   eng.beat = 0;
 }
+/* ── v3.0: curve spectrum reacts through a named analyzer ── */
+{
+  const proj = VX.project.current;
+  proj.layers = [];
+  proj.post = [];
+  proj.camera = { on: false, zoom: 1, x: 0, y: 0, rot: 0, zoomBass: 0, zoomBeat: 0, rotBeat: 0, shake: 0, shakeBeat: 0, rotShake: 1 };
+  proj.analyzers = [{ id: 'r1', name: 'Vocals', lo: 200, hi: 2200, sens: 2, smooth: 0, min: 0, max: 1, enabled: true }];
+  const bg = VX.layers.make('background'); bg.props = { mode: 'color', color: '#000000' };
+  const spec = VX.layers.make('spectrum');
+  spec.props = Object.assign(spec.props, { mode: 'curve', count: 90, thickness: 9, fill: true, mirror: true, height: .32, c1: '#22d3ee', c2: '#f472b6', glow: 20, smooth: .4 });
+  spec.auto.thickness = { expr: "2 + an('Vocals')*10", max: 14 };
+  proj.layers = [bg, spec];
+  const c = createCanvas(W, Hh);
+  const eng = VX.audio.engine;
+  eng.bands = { bass: .1, mid: 0, treble: 0, level: .1 };
+  eng.range = (a, b) => (a >= 180 && b <= 2400) ? .75 : 0;   /* only the analyzer band is hot */
+  for (let f = 0; f < 14; f++) VX.renderer.render(c, f * 0.05, { dt: 1 / 60, playing: true });
+  const sum = (cv) => { const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data; let s = 0; for (let i = 0; i < d.length; i += 40) s += d[i] + d[i + 1] + d[i + 2]; return s; };
+  const hot = sum(c);
+  fs.writeFileSync(path.join(OUT, 'curve-analyzer.png'), c.toBuffer('image/png'));
+  eng.range = () => 0;                                       /* analyzer goes silent */
+  for (let f = 0; f < 14; f++) VX.renderer.render(c, 20 + f * 0.05, { dt: 1 / 60, playing: true });
+  const cold = sum(c);
+  if (hot - cold < 40000) throw new Error('analyzer-driven curve not reactive: ' + (hot - cold));
+  console.log('✓ analyzer-driven curve spectrum reacts — Δ' + (hot - cold));
+  /* curve vs bars differ visually */
+  spec.auto = {};
+  eng.range = () => .6;
+  for (let f = 0; f < 10; f++) VX.renderer.render(c, 40 + f * 0.05, { dt: 1 / 60, playing: true });
+  const curveSum = sum(c);
+  spec.props.mode = 'bars';
+  for (let f = 0; f < 10; f++) VX.renderer.render(c, 40 + f * 0.05, { dt: 1 / 60, playing: true });
+  const barsSum = sum(c);
+  if (Math.abs(curveSum - barsSum) < 5000) throw new Error('curve and bars look identical?!');
+  console.log('✓ curve mode renders differently from bars — Δ' + Math.round(Math.abs(curveSum - barsSum)));
+  fs.writeFileSync(path.join(OUT, 'curve-mode.png'), c.toBuffer('image/png'));
+}
+
+/* ── v3.0: stock images generate + draw ── */
+{
+  const stock = VX.assets.stock();
+  if (stock.length < 5) throw new Error('stock generation failed: ' + stock.length);
+  const proj = VX.project.current;
+  proj.analyzers = [];
+  const bg = VX.layers.make('image'); bg.props.assetId = VX.assets.addData('image', stock[0].name, stock[0].dataUrl);
+  const el = VX.assets.get(bg.props.assetId).el;   /* jsdom Image — wait for decode */
+  for (let i = 0; i < 50 && !(el.complete && el.naturalWidth); i++) await new Promise(r => setTimeout(r, 20));
+  bg.props.size = 1;
+  proj.layers = [bg];
+  const c = createCanvas(W, Hh);
+  VX.renderer.render(c, 1, { dt: 1 / 60, playing: true });
+  const d = c.getContext('2d').getImageData(0, 0, W, Hh).data;
+  let s = 0; for (let i = 0; i < d.length; i += 400) s += d[i] + d[i + 1] + d[i + 2];
+  if (s < 2000) throw new Error('stock image drew nothing');
+  fs.writeFileSync(path.join(OUT, 'stock-image.png'), c.toBuffer('image/png'));
+  console.log('✓ stock asset generates and draws (' + stock.length + ' items, lum ' + s + ')');
+}
+
 console.log('done →', OUT);

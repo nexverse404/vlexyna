@@ -80,7 +80,7 @@ function newProject() {
     <select :value="String(S.fpsProj)" @change="S.vx.project.current.fps = +$event.target.value; S.vx.project.snapshot('fps'); S.fpsProj = +$event.target.value" title="Frame rate">
       <option value="24">24 fps</option><option value="30">30 fps</option><option value="60">60 fps</option>
     </select>
-    <select class="only-wide" :value="String(S.vx?.app.previewQuality ?? 720)" @change="S.vx.app.previewQuality = +$event.target.value" title="Preview quality — lower renders faster">
+    <select class="only-wide" :value="String(S.vx?.app.previewQuality ?? 720)" @change="S.vx.app.previewQuality = +$event.target.value; S.vx.renderer.invalidate()" title="Preview quality — lower renders faster">
       <option v-for="q in quals" :key="q[0]" :value="String(q[0])">{{ q[1] }}</option>
     </select>
 
@@ -93,6 +93,7 @@ function newProject() {
 
     <button class="btn" @click="openModal('templates')" title="Templates (T)"><span v-html="U.icon('template', 13)"></span><span class="bt-txt">Templates</span></button>
     <button class="btn" @click="openModal('projects')" title="Projects"><span v-html="U.icon('folder', 13)"></span><span class="bt-txt">Projects</span></button>
+    <button class="btn" @click="openModal('media')" title="Media library — stock images, your uploads, fonts"><span v-html="U.icon('media', 13)"></span><span class="bt-txt">Media</span></button>
     <button class="btn" @click="snapshot" title="Save frame as PNG (P)"><span v-html="U.icon('camera', 13)"></span><span class="bt-txt">Frame</span></button>
     <button class="ib" @click="document.getElementById('stage')?.requestFullscreen?.()" title="Fullscreen (F)" v-html="U.icon('fullscreen')"></button>
     <button class="ib" @click="openModal('help')" title="Help & shortcuts (?)" v-html="U.icon('help')"></button>

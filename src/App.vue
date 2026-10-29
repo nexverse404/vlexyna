@@ -13,6 +13,7 @@ import Modals from './components/Modals.vue';
 
 const dragging = ref(false);
 let dragN = 0;
+let nudgeT = 0;
 
 /* timeline collapse is pure CSS (body class retunes --h-tl for .app and the toasts) */
 watch(() => S.ui.tl, v => document.body.classList.toggle('tl-closed', !v), { immediate: true });
@@ -59,6 +60,8 @@ function onKey(e) {
       const d = e.shiftKey ? .05 : .005;
       if (e.key === 'ArrowUp') l.y -= d; if (e.key === 'ArrowDown') l.y += d;
       if (e.key === 'ArrowLeft') l.x -= d; if (e.key === 'ArrowRight') l.x += d;
+      VX.renderer && VX.renderer.invalidate();
+      clearTimeout(nudgeT); nudgeT = setTimeout(() => VX.project.snapshot('nudge layer'), 350);
       break;
     }
     case 'f': case 'F': document.getElementById('stage')?.requestFullscreen?.(); break;

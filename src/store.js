@@ -20,7 +20,11 @@ export const S = reactive({
   canUndo: false, canRedo: false, savedFlash: 0,
 });
 
-export const touch = () => { S.rev++; };
+export const touch = () => {
+  S.rev++;
+  /* any UI-visible change also marks the preview dirty (paused idle redraw skip) */
+  if (S.vx?.renderer?.invalidate) S.vx.renderer.invalidate();
+};
 export const touchTl = () => { S.tlRev++; S.rev++; };
 
 let toastN = 0;

@@ -82,6 +82,111 @@ import { VX, U } from './util.js';
       for (const a of A.map.values()) o.push({ id: a.id, kind: a.kind, name: a.name, dataUrl: a.dataUrl, text: a.text });
       return o;
     },
+    /* ---------- media library — reuse assets across projects (this browser) ----------
+       Small assets (< 1.5 MB as data URL) persist to localStorage; the rest live
+       for the session only. Stock assets are generated procedurally on demand. */
+    LIB_KEY: 'vlexyna_library_v1',
+    _lib: null,
+    library() {
+      if (A._lib) return A._lib;
+      try { A._lib = JSON.parse(localStorage.getItem(A.LIB_KEY) || '[]'); } catch (e) { A._lib = []; }
+      return A._lib;
+    },
+    librarySave() {
+      try { localStorage.setItem(A.LIB_KEY, JSON.stringify(A._lib || [])); }
+      catch (e) { U.toast('Library full — remove some items (browser storage cap)', 'warn'); }
+    },
+    libraryAdd(kind, name, dataUrl) {
+      const lib = A.library();
+      if (lib.some(x => x.kind === kind && x.name === name && x.dataUrl === dataUrl)) return false;
+      lib.push({ kind, name, dataUrl, added: Date.now() });
+      A.librarySave();
+      return true;
+    },
+    libraryRemove(i) { A.library().splice(i, 1); A.librarySave(); },
+    /* import a library entry (or stock item) into the current project assets */
+    libraryUse(entry) {
+      if (entry.kind === 'audio') return entry;   /* audio flows through the audio engine, not assets */
+      return A.addData(entry.kind, entry.name, entry.dataUrl);
+    },
+    /* ---------- stock assets — generated in-browser, zero downloads ---------- */
+    _stock: null,
+    stock() {
+      if (A._stock) return A._stock;
+      const mk = (name, w, h, fn) => {
+        const c = document.createElement('canvas'); c.width = w; c.height = h;
+        const x = c.getContext('2d'); fn(x, w, h);
+        let dataUrl = '';
+        try { dataUrl = c.toDataURL('image/jpeg', .88); } catch (e) { /* embedder without canvas serialization */ }
+        if (!dataUrl) return null;
+        return { kind: 'image', name, dataUrl, stock: true };
+      };
+      const S = [];
+      S.push(mk('Stock · Aurora', 640, 360, (x, w, h) => {
+        const g = x.createLinearGradient(0, 0, w, h);
+        g.addColorStop(0, '#0b1026'); g.addColorStop(.45, '#123a5f'); g.addColorStop(.75, '#1b7c6e'); g.addColorStop(1, '#0e1420');
+        x.fillStyle = g; x.fillRect(0, 0, w, h);
+        for (let i = 0; i < 5; i++) {
+          const gg = x.createLinearGradient(0, h * (.2 + i * .12), w, h * (.5 + i * .1));
+          gg.addColorStop(0, 'rgba(34,211,238,0)'); gg.addColorStop(.5, 'rgba(34,211,238,.28)'); gg.addColorStop(1, 'rgba(124,92,255,0)');
+          x.fillStyle = gg; x.fillRect(0, h * (.15 + i * .13), w, h * .1);
+        }
+      }));
+      S.push(mk('Stock · Sunset grid', 640, 360, (x, w, h) => {
+        const g = x.createLinearGradient(0, 0, 0, h);
+        g.addColorStop(0, '#2b1055'); g.addColorStop(.55, '#7b2d8b'); g.addColorStop(.72, '#ff6b6b'); g.addColorStop(1, '#14101e');
+        x.fillStyle = g; x.fillRect(0, 0, w, h);
+        x.strokeStyle = 'rgba(34,211,238,.5)'; x.lineWidth = 1.2;
+        const hz = h * .72;
+        for (let i = 0; i <= 16; i++) { const px = (i / 16) * w; x.beginPath(); x.moveTo(w / 2 + (px - w / 2) * .18, hz); x.lineTo(px * 1.6 - w * .3, h); x.stroke(); }
+        for (let i = 0; i < 9; i++) { const py = hz + Math.pow(i / 9, 1.7) * (h - hz); x.beginPath(); x.moveTo(0, py); x.lineTo(w, py); x.stroke(); }
+        x.fillStyle = '#ffd9a0'; x.beginPath(); x.arc(w / 2, hz - 8, 46, Math.PI, 0); x.fill();
+        x.fillStyle = '#14101e'; for (let i = 0; i < 4; i++) x.fillRect(w / 2 - 46, hz - 20 + i * 10, 92, 4);
+      }));
+      S.push(mk('Stock · Bokeh', 640, 360, (x, w, h) => {
+        x.fillStyle = '#0a0d18'; x.fillRect(0, 0, w, h);
+        const cols = ['#22d3ee', '#7c5cff', '#f472b6', '#fbbf24'];
+        let seed = 7;
+        const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+        for (let i = 0; i < 26; i++) {
+          const r = 12 + rnd() * 60, cx = rnd() * w, cy = rnd() * h;
+          const g = x.createRadialGradient(cx, cy, 0, cx, cy, r);
+          const c = cols[i % cols.length];
+          g.addColorStop(0, c + '55'); g.addColorStop(.8, c + '22'); g.addColorStop(1, c + '00');
+          x.fillStyle = g; x.beginPath(); x.arc(cx, cy, r, 0, 7); x.fill();
+        }
+      }));
+      S.push(mk('Stock · Rays', 640, 360, (x, w, h) => {
+        x.fillStyle = '#07070f'; x.fillRect(0, 0, w, h);
+        x.save(); x.translate(w / 2, h / 2);
+        for (let i = 0; i < 24; i++) {
+          x.rotate(Math.PI * 2 / 24);
+          const g = x.createLinearGradient(0, 0, w, 0);
+          g.addColorStop(0, 'rgba(124,92,255,.5)'); g.addColorStop(1, 'rgba(124,92,255,0)');
+          x.fillStyle = g;
+          x.beginPath(); x.moveTo(0, 0); x.lineTo(w, -14); x.lineTo(w, 14); x.closePath(); x.fill();
+        }
+        x.restore();
+      }));
+      S.push(mk('Stock · Noise', 512, 288, (x, w, h) => {
+        const d = x.createImageData(w, h);
+        let seed = 3; const rnd = () => (seed = (seed * 48271) % 2147483647) / 2147483647;
+        for (let i = 0; i < d.data.length; i += 4) { const v = 24 + rnd() * 90; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255; }
+        x.putImageData(d, 0, 0);
+      }));
+      S.push(mk('Stock · Checker glow', 640, 360, (x, w, h) => {
+        x.fillStyle = '#0b0d16'; x.fillRect(0, 0, w, h);
+        const s = 40;
+        for (let gy = 0; gy < h / s; gy++) for (let gx = 0; gx < w / s; gx++) {
+          if ((gx + gy) % 2) continue;
+          const px = gx * s, py = gy * s, d = Math.hypot(px - w / 2, py - h / 2) / Math.hypot(w / 2, h / 2);
+          x.fillStyle = 'rgba(34,211,238,' + (0.05 + .3 * (1 - d)) + ')';
+          x.fillRect(px, py, s - 2, s - 2);
+        }
+      }));
+      A._stock = S.filter(Boolean);
+      return A._stock;
+    },
     load(list) {
       if (!list) return;
       for (const a of list) if (!A.map.has(a.id)) A.addData(a.kind, a.name, a.dataUrl, a.text);

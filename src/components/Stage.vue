@@ -103,6 +103,7 @@ function handleDown(e, mode) {
       const d = Math.hypot(ev.clientX - cx, ev.clientY - cy);
       l.scale = U.clamp(Math.round(start.scale * d / start.dist * 100) / 100, .05, 30);
     }
+    S.vx.renderer && S.vx.renderer.invalidate();
   };
   const up = () => {
     document.removeEventListener('pointermove', move);
@@ -113,20 +114,80 @@ function handleDown(e, mode) {
   document.addEventListener('pointerup', up);
 }
 
-/* drag to move the selected layer */
+/* ── click-to-select: pixel hit-test the layers under the cursor ──
+   Each candidate layer is drawn alone to a small offscreen canvas and the
+   alpha under the click point decides. Stateful / GL layers fall back to a
+   bounding-circle estimate. Cheapest possible: only on click, low res. */
+const HIT_SKIP = new Set(['shader', 'butterchurn', 'lottie']);
+let hitCv = null;
+function pickLayer(px, py) {
+  const VX = S.vx, proj = VX.project.current;
+  if (!proj) return null;
+  const W = cv.value.width, H = cv.value.height;
+  const sc = Math.min(1, 480 / Math.max(W, H));          /* hit canvas scale */
+  const hw = Math.max(2, Math.round(W * sc)), hh = Math.max(2, Math.round(H * sc));
+  if (!hitCv) hitCv = document.createElement('canvas');
+  hitCv.width = hw; hitCv.height = hh;
+  const hx = hitCv.getContext('2d');
+  const cx = U.clamp(px * sc, 0, hw - 1), cy = U.clamp(py * sc, 0, hh - 1);
+  const a = { bass: 0, mid: 0, treble: 0, level: 0, beat: 0, beatCount: 0, wave: VX.audio.engine.wave || new Float32Array(64) };
+  for (let i = proj.layers.length - 1; i >= 0; i--) {
+    const l = proj.layers[i];
+    if (!VX.renderer.layerVisible(l, VX.app.time)) continue;
+    const def = VX.layers.byId[l.type];
+    if (!def) continue;
+    if (HIT_SKIP.has(l.type)) {
+      /* fallback: circle around the anchor sized by scale */
+      const rr = .36 * Math.min(W, H) * (l.scale || 1);
+      if (Math.hypot((px - l.x) * W, (py - l.y) * H) <= rr) return l;
+      continue;
+    }
+    try {
+      hx.setTransform(1, 0, 0, 1, 0, 0);
+      hx.globalAlpha = 1; hx.globalCompositeOperation = 'source-over'; hx.filter = 'none';
+      hx.clearRect(0, 0, hw, hh);
+      hx.save();
+      if (!def.noTransform) {
+        hx.translate(l.x * hw, l.y * hh);
+        hx.rotate((l.rotation || 0) * Math.PI / 180);
+        hx.scale(l.scale || 1, l.scale || 1);
+      }
+      def.draw(hx, {
+        W: hw, H: hh, t: VX.app.time, dt: 0, a, p: l.props, layer: l, env: {},
+        playing: false, time: VX.app.time, duration: VX.app.duration(), project: proj,
+        alpha: 1, layerLocal: VX.app.time - (l.start || 0), frameBefore: null,
+      });
+      hx.restore();
+      const d = hx.getImageData(cx, cy, 1, 1).data;
+      if (d[3] > 12) return l;
+    } catch (e) { /* layer that can't draw offscreen — skip it */ }
+  }
+  return null;
+}
+
+/* drag to move the selected layer (click first selects what is under the cursor) */
 let drag = null;
 function onDown(e) {
-  const l = selL.value;
-  if (!l || l.locked || S.exporting) return;
+  if (S.exporting || e.button !== 0) return;
   const r = cv.value.getBoundingClientRect();
+  const px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+  let l = selL.value;
+  const hit = pickLayer(px, py);
+  if (!hit) {                                   /* clicked empty space → deselect */
+    if (l || S.multi.length) { S.sel = null; S.multi = []; }
+    return;
+  }
+  if (hit !== l) { S.sel = hit.id; S.multi = []; l = hit; }
+  if (l.locked) return;
   drag = {
-    x0: (e.clientX - r.left) / r.width, y0: (e.clientY - r.top) / r.height,
+    x0: px, y0: py,
     lx: l.x, ly: l.y,
   };
   const move = (ev) => {
     if (!drag) return;
-    l.x = U.clamp(drag.lx + ((ev.clientX - r.left) / r.width - drag.x0), 0, 1);
-    l.y = U.clamp(drag.ly + ((ev.clientY - r.top) / r.height - drag.y0), 0, 1);
+    l.x = U.clamp(drag.lx + ((ev.clientX - r.left) / r.width - drag.x0), -.5, 1.5);
+    l.y = U.clamp(drag.ly + ((ev.clientY - r.top) / r.height - drag.y0), -.5, 1.5);
+    S.vx.renderer && S.vx.renderer.invalidate();
   };
   const up = () => {
     drag = null;
@@ -163,6 +224,7 @@ function onDown(e) {
     </div>
     <div id="exportBadge" v-if="S.exporting">● RECORDING</div>
     <div class="stage-hint lab" v-if="S.booted && !S.audio.has && !S.exporting">no audio — demo beat or drop a file</div>
+    <div class="pick-hint lab" v-if="!S.sel && S.booted && !S.exporting">click a layer to select it · drag to move</div>
   </main>
 </template>
 
@@ -218,6 +280,7 @@ function onDown(e) {
 }
 @keyframes blink { 50% { opacity: .45; } }
 .stage-hint { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); pointer-events: none; }
+.pick-hint { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); pointer-events: none; opacity: .8; }
 #stage:fullscreen { background: #000; }
 #stage:fullscreen #stageInner { outline: none; }
 </style>

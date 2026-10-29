@@ -25,6 +25,7 @@ import { VX, U } from './util.js';
     proj.layers = t.layers.map(l => mk(l.type, l)).filter(Boolean);
     proj.post = (t.post || []).map(f => ({ ...f, params: { ...f.params } }));
     proj.camera = { on: false, zoom: 1, x: 0, y: 0, rot: 0, zoomBass: 0, zoomBeat: 0, rotBeat: 0, shake: 0, shakeBeat: 0, rotShake: 1, ...(t.camera || {}) };
+    if (t.analyzers) proj.analyzers = JSON.parse(JSON.stringify(t.analyzers));
     if (t.vars) proj.vars = { ...t.vars };
     proj.name = proj.name === 'Untitled' ? t.name : proj.name;
     VX.project.snapshot('template: ' + t.name);
@@ -437,6 +438,22 @@ import { VX, U } from './util.js';
     ],
     camera: { on: true, zoom: 1.08, zoomBass: .05, zoomBeat: .03, rotBeat: .4, shakeBeat: .18, rotShake: .5 },
     post: [FXm('bloom', { threshold: .6, radius: 22, intensity: .7 }), FXm('vignette', { strength: .45 })],
+  });
+
+  T.add({
+    name: 'Neon Waveform', desc: 'Smooth mirrored curve spectrum, glow city — shows the new curve mode + a custom analyzer',
+    grad: ['#22d3ee', '#f472b6'],
+    layers: [
+      { type: 'background', props: { mode: 'gradient', c1: '#03040c', c2: '#0b0620', angle: 160, vign: .6 } },
+      { type: 'starfield', props: { count: 220, speed: 26, c1: '#8ea2c8', size: 1.6, glow: 6 } },
+      { type: 'spectrum', y: .55, props: { mode: 'curve', count: 110, thickness: 8, fill: true, mirror: true, height: .3, c1: '#22d3ee', c2: '#f472b6', glow: 34, smooth: .55, alphaFloor: .2 },
+        auto: { thickness: { expr: "2 + an('Vocals')*9", max: 12 } } },
+      { type: 'text', name: 'Title', x: .5, y: .1, props: { text: 'NEON WAVEFORM', size: 3, weight: 800, gradient: true, c1: '#22d3ee', c2: '#f472b6', letterSpacing: 18, shadowBlur: 22, anim: 'pulse', animAmt: .22 } },
+      { type: 'progress', y: .95, props: {} },
+    ],
+    analyzers: [{ id: 'an-voc', name: 'Vocals', lo: 200, hi: 2200, sens: 1.6, smooth: .3, min: 0, max: 1, delta: false, enabled: true }],
+    camera: { on: true, zoom: 1.06, zoomBass: .04, zoomBeat: .02, rotShake: .4 },
+    post: [FXm('bloom', { threshold: .55, radius: 26, intensity: .8 }), FXm('vignette', { strength: .5 })],
   });
 
   /* ═══════════ community: your own template library (local remix flow) ═══════════ */

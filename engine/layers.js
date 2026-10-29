@@ -111,16 +111,20 @@ import { VX, U } from './util.js';
       mode: 'bars', count: 64, minFreq: 30, maxFreq: 14000, scaleType: 'log', barWidth: .7, gap: .1,
       height: .38, amplitude: 1, curve: .8, smooth: .5, cap: 0, rounded: true,
       c1: '#22d3ee', c2: '#7c5cff', solid: false, glow: 18, mirror: false,
-      radius: .16, spin: 0, rot0: 0, width: .9, thickness: 6, dotSize: .6, pulse: .25, alphaFloor: .35
+      radius: .16, spin: 0, rot0: 0, width: .9, thickness: 6, dotSize: .6, pulse: .25, alphaFloor: .35,
+      fill: true, soft: 0
     }),
     params: [
       P.group('Style', [
-        P.sel('mode', 'Mode', [['bars', 'Bars'], ['mirror', 'Mirror bars'], ['radial', 'Radial'], ['dots', 'Dot columns'], ['blocks', 'LED blocks']], 'bars'),
+        P.sel('mode', 'Mode', [['bars', 'Bars'], ['mirror', 'Mirror bars'], ['curve', 'Smooth curve'], ['radial', 'Radial'], ['dots', 'Dot columns'], ['blocks', 'LED blocks']], 'bars'),
         P.num('count', 'Bar count', 8, 256, 1, 64),
         P.num('barWidth', 'Bar width', .05, 1, .01, .7),
+        P.num('gap', 'Bar gap', 0, .9, .01, .1),
         P.bool('rounded', 'Rounded caps', true),
         P.num('cap', 'LED segment size', 0, 60, 1, 0),
         P.num('glow', 'Glow', 0, 80, 1, 18),
+        P.num('soft', 'Soft edges', 0, 20, 1, 0),
+        P.bool('fill', 'Fill under curve', true),
       ]),
       P.group('Range', [
         P.num('minFreq', 'Min frequency (Hz)', 20, 2000, 5, 30),
@@ -150,6 +154,7 @@ import { VX, U } from './util.js';
         P.act('preset_led', 'LED wall', (l) => VX.layers.presetSpectrum(l, 'led')),
         P.act('preset_radial', 'Radial ring', (l) => VX.layers.presetSpectrum(l, 'radial')),
         P.act('preset_fire', 'Fire', (l) => VX.layers.presetSpectrum(l, 'fire')),
+        P.act('preset_wave', 'Waveform', (l) => VX.layers.presetSpectrum(l, 'wave')),
       ]),
     ],
     draw(x, st) {
@@ -166,10 +171,20 @@ import { VX, U } from './util.js';
         const target = Math.pow(VX.audio.engine.range(lo, hi), p.curve) * p.amplitude * (1 + a.bass * p.pulse);
         bars[i] += (target - bars[i]) * (target > bars[i] ? rise : fall);
       }
-      const colAt = (i) => p.solid ? p.c1 : U.lerpColor(p.c1, p.c2, n > 1 ? i / (n - 1) : 0);
+      /* color LUT — one pass per frame instead of hex-parsing per bar per frame */
+      const lutKey = n + '|' + p.c1 + '|' + p.c2 + '|' + p.solid;
+      if (layer._lutKey !== lutKey) {
+        layer._lut = new Array(n);
+        for (let i = 0; i < n; i++) layer._lut[i] = p.solid ? p.c1 : U.lerpColor(p.c1, p.c2, n > 1 ? i / (n - 1) : 0);
+        layer._lutKey = lutKey;
+      }
+      const lut = layer._lut;
+      const colAt = (i) => lut[i] || p.c1;
       x.save();
       x.lineCap = p.rounded ? 'round' : 'butt';
-      if (p.glow > 0) { x.shadowBlur = p.glow * (H / 1080); x.shadowColor = colAt(n / 2); }
+      const softPx = (p.soft || 0) * (H / 1080);
+      if (p.glow > 0) { x.shadowBlur = p.glow * (H / 1080); x.shadowColor = colAt(n >> 1); }
+      else if (softPx > 0) { x.shadowBlur = softPx; x.shadowColor = colAt(n >> 1); }
       const hMax = p.height * H * (1 + a.bass * p.pulse * .6);
 
       if (p.mode === 'radial') {
@@ -210,6 +225,49 @@ import { VX, U } from './util.js';
           }
           x.globalAlpha = st.alpha ?? 1;
         }
+      } else if (p.mode === 'curve') {
+        /* smooth curve through the bar tops — filled ribbon or glowing line */
+        const span = p.width * W;
+        const pts = [];
+        for (let i = 0; i < n; i++) pts.push([-span / 2 + span * (i / Math.max(1, n - 1)), -Math.max(2, bars[i] * hMax)]);
+        const drawSide = (flip) => {
+          x.beginPath();
+          x.moveTo(pts[0][0], flip ? -pts[0][1] : pts[0][1]);
+          for (let i = 0; i < pts.length - 1; i++) {
+            const [x0, y0] = pts[i], [x1, y1] = pts[i + 1];
+            const mx = (x0 + x1) / 2;
+            x.bezierCurveTo(mx, flip ? -y0 : y0, mx, flip ? -y1 : y1, x1, flip ? -y1 : y1);
+          }
+          if (p.fill) {
+            x.lineTo(pts[pts.length - 1][0], 0); x.lineTo(pts[0][0], 0); x.closePath();
+            const g = x.createLinearGradient(-span / 2, 0, span / 2, 0);
+            g.addColorStop(0, colAt(0)); g.addColorStop(.5, colAt(n >> 1)); g.addColorStop(1, colAt(n - 1));
+            x.fillStyle = g;
+            x.fill();
+          }
+        };
+        drawSide(false);
+        if (p.mirror) drawSide(true);
+        x.beginPath();
+        x.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 0; i < pts.length - 1; i++) {
+          const [x0, y0] = pts[i], [x1, y1] = pts[i + 1];
+          const mx = (x0 + x1) / 2;
+          x.bezierCurveTo(mx, y0, mx, y1, x1, y1);
+        }
+        x.lineWidth = Math.max(1, p.thickness * (H / 1080));
+        x.strokeStyle = colAt(n >> 1);
+        x.stroke();
+        if (p.mirror) {
+          x.beginPath();
+          x.moveTo(pts[0][0], -pts[0][1]);
+          for (let i = 0; i < pts.length - 1; i++) {
+            const [x0, y0] = pts[i], [x1, y1] = pts[i + 1];
+            const mx = (x0 + x1) / 2;
+            x.bezierCurveTo(mx, -y0, mx, -y1, x1, -y1);
+          }
+          x.stroke();
+        }
       } else {
         const span = p.width * W, slot = span / n;
         const bw = Math.max(1, slot * p.barWidth - slot * p.gap * .5);
@@ -245,6 +303,7 @@ import { VX, U } from './util.js';
     if (kind === 'led') set({ mode: 'blocks', count: 40, barWidth: .8, cap: 26, c1: '#22c55e', c2: '#ef4444', height: .5, glow: 8, curve: .8 });
     if (kind === 'radial') set({ mode: 'radial', count: 110, radius: .18, height: .3, c1: '#f472b6', c2: '#22d3ee', glow: 20, barWidth: .6 });
     if (kind === 'fire') set({ mode: 'mirror', count: 72, barWidth: .85, rounded: false, c1: '#fde047', c2: '#dc2626', height: .5, glow: 30, curve: .7 });
+    if (kind === 'wave') set({ mode: 'curve', count: 96, thickness: 7, fill: true, mirror: true, c1: '#22d3ee', c2: '#f472b6', height: .3, glow: 26, smooth: .6 });
     VX.ui && VX.ui.refreshInspector();
   };
 
