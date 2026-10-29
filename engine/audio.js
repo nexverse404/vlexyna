@@ -17,6 +17,7 @@ import { VX, U } from './util.js';
       this.beat = 0; this.beatCount = 0; this._lastBeat = -9; this._hist = [];
       this.tags = {}; this.rate = 1;
       this.peaks = null; this.mic = null; this.micStream = null;
+      this.anValues = {}; this._anState = new Map();   /* named analyzers: value state */
       this.onstate = null; this.onended = null;
     }
     ensureCtx() {
@@ -224,6 +225,37 @@ import { VX, U } from './util.js';
       let s = 0; for (let i = a; i < b; i++) s += this.freq[i];
       return s / (b - a) / 255;
     }
+    /* ---------- named audio analyzers (project.analyzers) ----------
+       Each analyzer reads a frequency band with its own sensitivity, smoothing,
+       output clamp and optional delta (rate-of-change) mode. Values surface in
+       math automations as an('Name') — or bare when the name is an identifier. */
+    computeAnalyzers(list, dt) {
+      const out = {};
+      if (!Array.isArray(list)) return out;
+      const step = dt > 0 ? dt : 1 / 60;
+      list.forEach((an, idx) => {
+        if (!an || an.enabled === false) return;
+        const lo = Math.max(20, +an.lo || 20), hi = Math.max(lo + 20, +an.hi || 140);
+        let v = this.range(lo, hi) * (+an.sens || 1);
+        if (an.delta) {
+          const k = 'r' + an.id;
+          const prevR = this._anState.has(k) ? this._anState.get(k) : v;
+          v = Math.abs(v - prevR);
+          this._anState.set(k, this.range(lo, hi) * (+an.sens || 1));
+        }
+        const sm = U.clamp(+an.smooth || 0, 0, .95);
+        const k = 'v' + an.id;
+        const prev = this._anState.has(k) ? this._anState.get(k) : 0;
+        v = prev + (v - prev) * (1 - Math.pow(sm, step * 60));
+        this._anState.set(k, v);
+        v = U.clamp(v, an.min ?? 0, an.max ?? 1);
+        out[an.name || ('Analyzer ' + (idx + 1))] = v;
+      });
+      this.anValues = out;
+      return out;
+    }
+    resetAnalyzers() { this._anState.clear(); this.anValues = {}; }
+
     tick(dt) {
       const has = this.analyser && (this.playing || this.mic);
       if (has) { this.analyser.getByteFrequencyData(this.freq); this.analyser.getFloatTimeDomainData(this.wave); }

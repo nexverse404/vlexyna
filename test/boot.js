@@ -32,6 +32,7 @@ function stubEngine(window) {
     if (!this.__ctx) this.__ctx = makeCtx(this);
     return this.__ctx;
   };
+  window.HTMLCanvasElement.prototype.toDataURL = function () { return 'data:image/jpeg;base64,c3R1Yg=='; };
   window.HTMLCanvasElement.prototype.toBlob = function (cb) { setTimeout(() => cb({ arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)), size: 8 }), 0); };
   window.HTMLCanvasElement.prototype.captureStream = function () { return { getTracks: () => [], getAudioTracks: () => [] }; };
   window.URL.createObjectURL = window.URL.createObjectURL || (() => 'blob:x');
@@ -301,6 +302,71 @@ if (VX) {
       const off = [...doc.querySelectorAll('.insp button')].find(b => b.textContent.trim() === 'Off');
       off && off.click(); await tick4();
     }
+  }
+
+  /* ── v3.0: analyzers · automations browser · media library · icons ── */
+  {
+    const tick5 = () => new Promise(r => setTimeout(r, 30));
+    const VX4 = chosen.window.VX;
+    /* make sure nothing is selected (inspector shows global panels) */
+    chosen.window.dispatchEvent(new chosen.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    await tick5();
+    let insp = doc.querySelector('.insp')?.textContent || '';
+    check(insp.includes('Audio analyzers'), 'analyzers panel visible with no selection');
+    const addAn = [...doc.querySelectorAll('.insp button')].find(b => /Add analyzer/.test(b.textContent));
+    check(!!addAn, 'add-analyzer button present');
+    if (addAn) {
+      addAn.click(); await tick5();
+      check((VX4.project.current.analyzers || []).length > 0, 'add-analyzer creates an analyzer');
+      insp = doc.querySelector('.insp')?.textContent || '';
+      check(insp.includes('Lower limit'), 'analyzer frequency-range controls shown');
+      check(insp.includes('Sensitivity'), 'analyzer sensitivity control shown');
+      const anCount = VX4.project.current.analyzers.length;
+      /* the trash button is the last .ib.tiny in the first analyzer card */
+      const anCard = doc.querySelector('.insp .fxcard');
+      const anBtns = anCard ? [...anCard.querySelectorAll('.ib.tiny')] : [];
+      const delAn = anBtns[anBtns.length - 1];
+      check(!!delAn, 'analyzer delete button present');
+      if (delAn) { delAn.click(); await tick5(); check(VX4.project.current.analyzers.length === anCount - 1, 'analyzer delete works'); }
+    }
+    /* automations browser: put an automation on a layer, deselect, look for the row */
+    const lay = VX4.project.current.layers[0];
+    if (lay) {
+      lay.auto = lay.auto || {};
+      lay.auto.scale = 'bass*0.2';
+      chosen.window.VX.ui.refreshAll(); await tick5();
+      chosen.window.dispatchEvent(new chosen.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      await tick5();
+      insp = doc.querySelector('.insp')?.textContent || '';
+      check(/Automations \(1\)/.test(insp) || insp.includes('Automations ('), 'automations browser lists project automations');
+      check(insp.includes('bass*0.2'), 'automation expression shown in browser');
+      /* clicking a browser row selects the layer and opens the Auto tab */
+      const row = [...doc.querySelectorAll('.insp .auto-row.browse .an-who')].find(() => true);
+      if (row) { row.click(); await tick5(); }
+      delete lay.auto.scale;
+    }
+    /* media modal from the topbar */
+    const mediaBtn = [...doc.querySelectorAll('header.bar .btn')].find(b => /Media/.test(b.textContent));
+    check(!!mediaBtn, 'Media button in top bar');
+    if (mediaBtn) {
+      mediaBtn.click(); await tick5();
+      const mtabs = [...doc.querySelectorAll('.m-tabs button')].map(b => b.textContent);
+      check(mtabs.includes('Stock') && mtabs.includes('Images') && mtabs.includes('Fonts'), 'media library tabs (stock/images/videos/fonts/audio)');
+      check(doc.querySelector('.media-grid') !== null, 'media library shows the stock grid');
+      const stockCard = doc.querySelector('.media-card');
+      check(!!stockCard, 'stock cards render');
+      const closeM = doc.querySelector('.m-h .ib'); closeM && closeM.click(); await tick5();
+    }
+    /* inspector tabs carry icons (row click toggles selection — make sure one lands) */
+    let tabBtns = doc.querySelectorAll('.insp .tabs button');
+    if (tabBtns.length < 3) {
+      const selRow = doc.querySelector('.layers .row');
+      if (selRow) { selRow.click(); await tick5(); }
+      tabBtns = doc.querySelectorAll('.insp .tabs button');
+    }
+    check(tabBtns.length === 3 && [...tabBtns].every(b => b.querySelector('svg')), 'inspector tabs have icons');
+    /* rename menu icon renders (missing-icon regression) */
+    check((VX4.util.icon('edit')).includes('<path'), 'edit icon exists for the rename menu');
   }
 
   /* the built CSS must carry the breakpoints */

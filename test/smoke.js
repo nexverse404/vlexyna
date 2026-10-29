@@ -154,7 +154,7 @@ const noWarns = () => { if (warns.length) { const w = warns.splice(0); throw new
   console.log('\n── registries ──');
   ok('22 layer types registered', () => { if (VX.layers.list.length !== 22) throw new Error('got ' + VX.layers.list.length); });
   ok('64 effects registered', () => { if (VX.fx.list.length !== 64) throw new Error('got ' + VX.fx.list.length); });
-  ok('32 templates registered', () => { if (VX.templates.list.length !== 32) throw new Error('got ' + VX.templates.list.length); });
+  ok('32 templates registered', () => { if (VX.templates.list.length !== 33) throw new Error('got ' + VX.templates.list.length); });
   ok('every fx def has id/name/cat/params', () => {
     for (const d of VX.fx.list) {
       if (!d.id || !d.name || !d.cat || !Array.isArray(d.params) || typeof d.apply !== 'function') throw new Error(d.id || 'unnamed');
@@ -610,6 +610,109 @@ const noWarns = () => { if (warns.length) { const w = warns.splice(0); throw new
     VX.templates.apply(t);
     if (!VX.project.current.camera.on) throw new Error('no camera');
     if (!VX.project.current.layers.some(l => l.type === 'text' && l.props.text.includes('{title}'))) throw new Error('no tag tokens');
+  });
+
+  console.log('\n── v3.0: analyzers · automations v3 · curve spectrum · media library ──');
+  ok('project.blank has analyzers array', () => {
+    const p = VX.project.blank();
+    if (!Array.isArray(p.analyzers)) throw new Error('missing');
+  });
+  ok('restore migrates camera-less/analyzer-less projects', () => {
+    const legacy = JSON.stringify({ id: 'x', name: 'L', width: 64, height: 64, fps: 30, layers: [], post: [], vars: {}, duration: 10, audioName: '' });
+    const cur = VX.project.current;
+    VX.project.current = JSON.parse(legacy);
+    VX.project.restore(legacy);
+    if (!Array.isArray(VX.project.current.analyzers)) throw new Error('analyzers not migrated');
+    if (!VX.project.current.camera || typeof VX.project.current.camera.on !== 'boolean') throw new Error('camera not migrated');
+    VX.project.current = cur;
+  });
+  ok('named analyzer: range → sensitivity → clamp', () => {
+    const eng = VX.audio.engine;
+    const old = eng.range; eng.range = (a, b) => { if (a >= 20 && b <= 150) return .5; throw new Error('range ' + a); };
+    const v = eng.computeAnalyzers([{ id: 't1', name: 'Sub', lo: 30, hi: 120, sens: 3, min: 0, max: 1 }], 1 / 60);
+    eng.range = old;
+    if (Math.abs(v.Sub - 1) > .001) throw new Error('expected clamp to 1, got ' + v.Sub);
+  });
+  ok('named analyzer: smoothing rises gradually', () => {
+    const eng = VX.audio.engine;
+    eng.range = () => 1;
+    eng.computeAnalyzers([{ id: 's1', name: 'S', lo: 40, hi: 200, sens: 1, smooth: .9 }], 1 / 60);
+    const a = eng.computeAnalyzers([{ id: 's1', name: 'S', lo: 40, hi: 200, sens: 1, smooth: .9 }], 1 / 60).S;
+    const b = eng.computeAnalyzers([{ id: 's1', name: 'S', lo: 40, hi: 200, sens: 1, smooth: .9 }], 1 / 60).S;
+    if (!(a > 0 && b > a && b < 1)) throw new Error('no smooth ramp: ' + a + ' → ' + b);
+    eng.resetAnalyzers();
+  });
+  ok('analyzer surfaces in expressions: an() + bare identifier', () => {
+    const eng = VX.audio.engine;
+    eng.range = () => .5;
+    eng.computeAnalyzers([{ id: 'e1', name: 'Kick Band', lo: 30, hi: 110, sens: 1 }], 1 / 60);
+    const env = VX.renderer.envFor(1, 1 / 60, { bass: 0, mid: 0, treble: 0, level: 0, beat: 0 }, {});
+    if (Math.abs(env.an('Kick Band') - .5) > 1e-6) throw new Error('an() broken');
+    if (Math.abs(env.KickBand - .5) > 1e-6) throw new Error('bare identifier broken');
+    eng.resetAnalyzers();
+  });
+  ok('v3 automation objects: expr + clamp + disable + smooth', () => {
+    const l = VX.layers.make('spectrum');
+    VX.project.current.layers = [l];
+    const env = VX.renderer.envFor(0, 1 / 60, { bass: .8, mid: 0, treble: 0, level: .8, beat: 0 }, {});
+    l.auto.scale = { expr: 'bass', max: .3 };
+    if (Math.abs(VX.renderer.autoDelta(l, 'scale', env, 1 / 60) - .3) > 1e-9) throw new Error('max clamp broken');
+    l.auto.scale = { expr: 'bass', enabled: false };
+    if (VX.renderer.autoDelta(l, 'scale', env, 1 / 60) !== 0) throw new Error('disable broken');
+    l.auto.scale = 'bass';
+    if (Math.abs(VX.renderer.autoDelta(l, 'scale', env, 1 / 60) - .8) > 1e-9) throw new Error('v2 string regression');
+    VX.project.current.layers = [];
+  });
+  ok('spectrum: curve mode + color LUT', () => {
+    const l = VX.layers.make('spectrum');
+    l.props.mode = 'curve'; l.props.count = 24; l.props.mirror = true;
+    const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+    VX.layers.byId.spectrum.draw(c.getContext('2d'), { W: 64, H: 64, t: 1, dt: 1 / 60, a: { bass: .5, wave: new Float32Array(8) }, p: l.props, layer: l, alpha: 1 });
+    if (!l._lut || l._lut.length !== 24) throw new Error('no LUT');
+    if (!l._lut[5].startsWith('#')) throw new Error('LUT entries not colors');
+    const before = l._lutKey;
+    l.props.c2 = '#ffffff';
+    VX.layers.byId.spectrum.draw(c.getContext('2d'), { W: 64, H: 64, t: 1, dt: 1 / 60, a: { bass: .5, wave: new Float32Array(8) }, p: l.props, layer: l, alpha: 1 });
+    if (l._lutKey === before) throw new Error('LUT not invalidated on color change');
+  });
+  ok('renderer: dirty flag + invalidate', () => {
+    VX.renderer.dirty = false;
+    if (VX.renderer.dirty) throw new Error('setup');
+    VX.renderer.invalidate();
+    if (!VX.renderer.dirty) throw new Error('invalidate did not mark dirty');
+  });
+  ok('icons: new set renders svgs', () => {
+    for (const k of ['edit', 'activity', 'sliders', 'media', 'cameraIcon', 'wand', 'zap', 'save', 'gauge', 'list']) {
+      const s = VX.util.icon(k);
+      if (!s.includes('<svg') || !s.includes('<path') && !s.includes('<rect') && !s.includes('<circle')) throw new Error('icon ' + k);
+    }
+  });
+  ok('media library: add / list / remove persists', () => {
+    const A = VX.assets;
+    A.libraryAdd('image', 'test-x', 'data:image/png;base64,AAAA');
+    if (!A.library().some(x => x.name === 'test-x')) throw new Error('not stored');
+    const i = A.library().findIndex(x => x.name === 'test-x');
+    A.libraryRemove(i);
+    if (A.library().some(x => x.name === 'test-x')) throw new Error('not removed');
+  });
+  ok('stock assets generate procedurally', () => {
+    /* jsdom can't serialize canvases — stub it before generating stock */
+    window.HTMLCanvasElement.prototype.toDataURL = function () { return 'data:image/jpeg;base64,c3R1Yg=='; };
+    const s = VX.assets.stock();
+    if (s.length < 5) throw new Error('too few stock items');
+    if (!s.every(x => x.dataUrl && x.dataUrl.startsWith('data:image'))) throw new Error('bad data urls');
+    if (!s.every(x => x.stock)) throw new Error('not flagged stock');
+  });
+  ok('Neon Waveform template: curve + analyzer + an() automation', () => {
+    const t = VX.templates.list.find(x => x.name === 'Neon Waveform');
+    if (!t) throw new Error('template missing');
+    VX.templates.apply(t);
+    const p = VX.project.current;
+    if (!Array.isArray(p.analyzers) || p.analyzers.length !== 1 || p.analyzers[0].name !== 'Vocals') throw new Error('analyzers not applied');
+    const spec = p.layers.find(l => l.type === 'spectrum');
+    if (spec.props.mode !== 'curve') throw new Error('not curve mode');
+    if (!spec.auto.thickness || !String(spec.auto.thickness.expr).includes("an('Vocals')")) throw new Error('no an() automation');
+    if (!p.camera.on) throw new Error('no camera');
   });
 
   console.log('\n── final: no window errors during whole run ──');

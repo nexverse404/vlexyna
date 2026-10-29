@@ -63,7 +63,7 @@ function addMenu(e) {
     if (!c) { c = { name: def.cat, items: [] }; cats.push(c); }
     c.items.push({ label: def.name, ic: def.icon, hint: def.desc, fn: () => addLayer(def.id) });
   }
-  const order = ['Media', 'Generators', 'Text', 'Visualization', '3D', 'Utility'];
+  const order = ['Media', 'Visuals', 'Background', 'Text', 'Decor', 'Generators', 'Visualization', '3D', 'Utility'];
   cats.sort((a, b) => (order.indexOf(a.name) + 100) - (order.indexOf(b.name) + 100));
   openMenu(e, cats.flatMap(c => [{ sep: c.name }, ...c.items]), { wide: true });
 }

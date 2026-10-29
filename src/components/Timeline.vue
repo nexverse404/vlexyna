@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue';
-import { S } from '../store.js';
+import { S, openMenu, toast } from '../store.js';
 import { U } from '../../engine/util.js';
 
 const ZOOMS = [2, 4, 8, 16, 24, 40, 64, 100];
@@ -66,6 +66,38 @@ function laneSeek(e) {
   if (e.target !== e.currentTarget) return;
   const r = e.currentTarget.getBoundingClientRect();
   S.vx.app.seekTo(U.clamp((e.clientX - r.left) / pps.value, 0, dur.value));
+}
+
+function clipMenu(e, l) {
+  e.preventDefault(); e.stopPropagation();
+  S.sel = l.id;
+  const VX = S.vx;
+  openMenu(e, [
+    { label: 'Duplicate', ic: 'copy', hint: 'Ctrl+D', fn: () => {
+      const arr = VX.project.current.layers;
+      const copy = JSON.parse(JSON.stringify(l, (k, v) => (k.startsWith('_') && k !== '_seed') ? undefined : v));
+      copy.id = U.uid(); copy.name += ' copy';
+      arr.splice(arr.indexOf(l) + 1, 0, copy);
+      VX.project.snapshot('duplicate layer'); S.rev++;
+    } },
+    { label: 'Split at playhead', ic: 'clock', hint: 'S', fn: () => {
+      const t = S.time;
+      if (t <= (l.start || 0) + .01 || (l.end != null && t >= l.end - .01)) { toast('Playhead is outside this layer', 'warn'); return; }
+      const b = JSON.parse(JSON.stringify(l, (k, v) => (k.startsWith('_') && k !== '_seed') ? undefined : v));
+      b.id = U.uid(); b.name = l.name + ' B';
+      l.end = t; b.start = t;
+      const arr = VX.project.current.layers;
+      arr.splice(arr.indexOf(l) + 1, 0, b);
+      VX.project.snapshot('split layer'); S.rev++;
+    } },
+    { label: 'Go to start', ic: 'undo', fn: () => VX.app.seekTo(l.start || 0) },
+    { sep: '' },
+    { label: 'Delete', ic: 'trash', danger: true, hint: 'Del', fn: () => {
+      const arr = VX.project.current.layers;
+      arr.splice(arr.findIndex(x => x.id === l.id), 1);
+      S.sel = null; VX.project.snapshot('delete layer'); S.rev++;
+    } },
+  ], { wide: true });
 }
 
 /* clip drag: move / trim */
@@ -141,7 +173,8 @@ defineExpose({ redrawAll });
         <div class="tl-lane" v-for="l in layers" :key="l.id" @pointerdown="laneSeek">
           <div class="clip" :class="{ sel: S.sel === l.id, off: !l.visible }"
                :style="{ left: ((l.start || 0) * pps) + 'px', width: Math.max(8, ((l.end ?? dur) - (l.start || 0)) * pps) + 'px' }"
-               @pointerdown="clipDown($event, l, 'move')">
+               @pointerdown="clipDown($event, l, 'move')"
+               @contextmenu="clipMenu($event, l)">
             <span class="clip-e l" @pointerdown.stop="clipDown($event, l, 'l')"></span>
             <span class="clip-n">{{ l.name }}</span>
             <span class="clip-e r" @pointerdown.stop="clipDown($event, l, 'r')"></span>

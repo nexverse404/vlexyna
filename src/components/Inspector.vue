@@ -50,7 +50,11 @@ function cam() {
   return p.camera || CAM_FALLBACK;
 }
 function camVal(k) { S.rev; return cam()[k]; }
-function setCam(k, v, commit) { cam()[k] = v; if (commit) S.vx.project.autosave(); touch(); }
+function setCam(k, v, commit) {
+  cam()[k] = v;
+  S.vx.renderer && S.vx.renderer.invalidate();
+  if (commit) { S.vx.project.snapshot('camera ' + k); touch(); }
+}
 function camPreset(name) {
   const P = {
     punch: { on: true, zoom: 1.04, zoomBass: .025, zoomBeat: .05, shake: 0, shakeBeat: .35, rotShake: .8, rot: 0, rotBeat: 0, x: 0, y: 0 },
@@ -67,7 +71,13 @@ const selDef = computed(() => (selL.value && S.vx.layers.byId[selL.value.type]) 
 const genKey = computed(() => `${S.rev}:${S.sel}:${tab.value}`);
 
 function get(o, k) { return () => o[k]; }
-function set(o, k) { return (v, commit = true) => { o[k] = v; if (commit) S.vx.project.autosave(); }; }
+function set(o, k) {
+  return (v, commit = true) => {
+    o[k] = v;
+    S.vx.renderer && S.vx.renderer.invalidate();          /* live preview while dragging */
+    if (commit) { S.vx.project.snapshot('edit ' + k); }   /* and it is undoable */
+  };
+}
 
 /* flatten P.group definitions into titled sections */
 function sections(def) {
@@ -122,6 +132,72 @@ function fxMenu(e, chain, i) {
   ]);
 }
 const post = computed(() => { S.rev; return S.vx?.project?.current?.post || []; });
+
+/* ── audio analyzers — custom named analysis channels ── */
+const AN_DEF = [
+  { t: 'text', key: 'name', label: 'Name' },
+  { t: 'num', key: 'lo', label: 'Lower limit (Hz)', min: 20, max: 8000, step: 5 },
+  { t: 'num', key: 'hi', label: 'Upper limit (Hz)', min: 40, max: 18000, step: 10 },
+  { t: 'num', key: 'sens', label: 'Sensitivity', min: 0, max: 4, step: .05 },
+  { t: 'num', key: 'smooth', label: 'Smoothing', min: 0, max: .95, step: .01 },
+  { t: 'num', key: 'min', label: 'Min value', min: -2, max: 2, step: .01 },
+  { t: 'num', key: 'max', label: 'Max value', min: -2, max: 4, step: .01 },
+  { t: 'bool', key: 'delta', label: 'Delta (rate of change)' },
+  { t: 'bool', key: 'enabled', label: 'Enabled' },
+];
+const analyzers = computed(() => { S.rev; const p = S.vx?.project?.current; if (p && !Array.isArray(p.analyzers)) p.analyzers = []; return p?.analyzers || []; });
+function addAnalyzer() {
+  const p = S.vx.project.current;
+  const n = (p.analyzers || (p.analyzers = [])).length + 1;
+  p.analyzers.push({ id: U.uid(), name: 'Analyzer ' + n, lo: 20, hi: 140, sens: 1, smooth: 0, min: 0, max: 1, delta: false, enabled: true });
+  S.vx.project.snapshot('add analyzer'); touch();
+}
+function setAn(an, k, v, commit) {
+  an[k] = v;
+  S.vx.renderer && S.vx.renderer.invalidate();
+  if (commit) S.vx.project.snapshot('analyzer ' + k);
+}
+function delAnalyzer(i) {
+  S.vx.project.current.analyzers.splice(i, 1);
+  S.vx.project.snapshot('remove analyzer'); touch();
+}
+const anValue = (name) => { S.time; return S.vx?.audio?.engine?.anValues?.[name] ?? 0; };
+
+/* ── automations browser — every automation in the project, vizzy-style ── */
+const allAutomations = computed(() => {
+  S.rev;
+  const out = [];
+  const proj = S.vx?.project?.current;
+  if (!proj) return out;
+  for (const l of proj.layers) {
+    for (const [k, a] of Object.entries(l.auto || {})) {
+      out.push({ layer: l, key: k, a });
+    }
+  }
+  return out;
+});
+const autoExprOf = (a) => typeof a === 'string' ? a : (a?.expr ?? '');
+const autoEnabled = (a) => typeof a === 'string' ? true : (a?.enabled !== false);
+function toggleAuto(row) {
+  const l = row.layer;
+  const a = l.auto[row.key];
+  if (typeof a === 'string') l.auto[row.key] = { expr: a, enabled: false };
+  else if (a) { a.enabled = !(a.enabled !== false); if (a.enabled === true && Object.keys(a).length === 2 && a.expr) l.auto[row.key] = a.expr; }
+  S.vx.project.snapshot('toggle automation'); touch();
+}
+function jumpAuto(row) { S.sel = row.layer.id; tab.value = 'auto'; }
+
+/* ── auto tab: normalize string ↔ object when editing advanced fields ── */
+function autoEdit(l, k, field, v, commit) {
+  const cur = l.auto[k];
+  const base = typeof cur === 'string' ? { expr: cur } : (cur ? { ...cur } : { expr: '' });
+  if (field === 'expr') base.expr = v; else base[field] = v === '' ? undefined : +v;
+  /* collapse back to a plain string when no extras are set */
+  const extras = ['min', 'max', 'smooth', 'enabled'].some(f => base[f] !== undefined && !(f === 'enabled' && base[f] === true));
+  l.auto[k] = extras || base.enabled === false ? base : (base.expr || '');
+  S.vx.renderer && S.vx.renderer.invalidate();
+  if (commit) { S.vx.project.snapshot('automation ' + k); touch(); }
+}
 </script>
 
 <template>
@@ -131,17 +207,47 @@ const post = computed(() => { S.rev; return S.vx?.project?.current?.post || []; 
       <div class="spacer"></div>
       <div v-if="selL" class="tabs">
         <button v-for="t in ['props', 'auto', 'fx']" :key="t" :class="{ on: tab === t }" @click="tab = t">
-          {{ t === 'props' ? 'Layer' : t === 'auto' ? 'Auto' : 'Effects' }}
+          <span v-html="U.icon(t === 'props' ? 'sliders' : t === 'auto' ? 'zap' : 'fx', 11)"></span>
+          <span>{{ t === 'props' ? 'Layer' : t === 'auto' ? 'Auto' : 'Effects' }}</span>
         </button>
       </div>
       <button class="ib only-narrow" @click="S.ui.right = false" title="Close panel" v-html="U.icon('close')"></button>
     </div>
 
     <div class="pbody">
-      <!-- no selection: global post effects -->
+      <!-- no selection: analyzers, automations, camera, global post effects -->
       <template v-if="!selL">
         <div class="grp">
-          <div class="grp-t">Camera — moves with the music</div>
+          <div class="grp-t"><span v-html="U.icon('activity', 12)"></span> Audio analyzers</div>
+          <p class="hint" style="margin-bottom:8px">Custom analysis channels — each reads its own frequency band. Use them in any automation as <code>an('Name')</code> or by name.</p>
+          <div v-for="(an, i) in analyzers" :key="an.id" class="fxcard">
+            <div class="fx-h">
+              <button class="ib tiny" @click="setAn(an, 'enabled', !an.enabled, true)" v-html="U.icon(an.enabled === false ? 'eyeOff' : 'eye', 13)"></button>
+              <span class="fx-n">{{ an.name }}</span>
+              <span class="lab mono anlive" v-if="an.enabled !== false">{{ (anValue(an.name) ?? 0).toFixed(2) }}</span>
+              <div class="spacer"></div>
+              <button class="ib tiny" @click="delAnalyzer(i)" v-html="U.icon('trash', 13)"></button>
+            </div>
+            <div class="fx-p">
+              <ParamControl v-for="ad in AN_DEF.filter(d => d.key !== 'enabled')" :key="ad.key" :param="ad"
+                            :get="() => an[ad.key]" :set="(v, c) => setAn(an, ad.key, v, c)" />
+            </div>
+          </div>
+          <button class="btn small" @click="addAnalyzer"><span v-html="U.icon('add', 12)"></span>Add analyzer</button>
+        </div>
+
+        <div class="grp" v-if="allAutomations.length">
+          <div class="grp-t"><span v-html="U.icon('zap', 12)"></span> Automations ({{ allAutomations.length }})</div>
+          <div v-for="(row, i) in allAutomations" :key="row.layer.id + row.key" class="auto-row browse">
+            <button class="ib tiny" @click="toggleAuto(row)" v-html="U.icon(autoEnabled(row.a) ? 'eye' : 'eyeOff', 12)"></button>
+            <code class="auto-k" :title="row.layer.name + ' · ' + row.key">{{ row.key }}</code>
+            <span class="an-who" @click="jumpAuto(row)" :title="'Jump to ' + row.layer.name">{{ row.layer.name }}</span>
+            <code class="an-exp mono">{{ autoExprOf(row.a) }}</code>
+          </div>
+        </div>
+
+        <div class="grp">
+          <div class="grp-t"><span v-html="U.icon('cameraIcon', 12)"></span> Camera — moves with the music</div>
           <ParamControl v-for="cd in camDefs" :key="cd.key" :param="cd"
                         :get="() => camVal(cd.key)" :set="(v, c) => setCam(cd.key, v, c)" />
           <div class="btn-row wrap" style="margin-top:6px">
@@ -189,13 +295,24 @@ const post = computed(() => { S.rev; return S.vx?.project?.current?.post || []; 
       </template>
 
       <template v-else-if="tab === 'auto'">
-        <p class="hint">Bind any property to the music — <code>bass</code>, <code>mid</code>, <code>treble</code>, <code>level</code>, <code>beat</code>, <code>t</code>, <code>freq(n)</code>, <code>fft(f0,f1)</code>. Evaluated every frame.</p>
+        <p class="hint">Bind any property to the music — <code>bass</code>, <code>mid</code>, <code>treble</code>, <code>level</code>, <code>beat</code>, <code>t</code>, <code>freq(n)</code>, <code>fft(f0,f1)</code>, <code>an('Name')</code>. Evaluated every frame.</p>
         <div :key="'a' + genKey">
-          <div v-for="(expr, k) in selL.auto || {}" :key="k" class="auto-row">
-            <code class="auto-k">{{ k }}</code>
-            <input class="tin mono" :value="expr" spellcheck="false"
-                   @change="selL.auto[k] = $event.target.value; S.vx.project.autosave()">
-            <button class="ib tiny" @click="delete selL.auto[k]; S.vx.project.autosave(); touch()" v-html="U.icon('close', 12)"></button>
+          <div v-for="(expr, k) in selL.auto || {}" :key="k" class="auto-card" :class="{ off: !autoEnabled(expr) }">
+            <div class="auto-row">
+              <button class="ib tiny" @click="toggleAuto({ layer: selL, key: k, a: expr })" v-html="U.icon(autoEnabled(expr) ? 'eye' : 'eyeOff', 12)"></button>
+              <code class="auto-k">{{ k }}</code>
+              <input class="tin mono" :value="autoExprOf(expr)" spellcheck="false" placeholder="e.g. beat*0.3"
+                     @change="autoEdit(selL, k, 'expr', $event.target.value, true)">
+              <button class="ib tiny" @click="delete selL.auto[k]; S.vx.project.snapshot('remove automation'); touch()" v-html="U.icon('close', 12)"></button>
+            </div>
+            <div class="auto-adv">
+              <label>min <input class="numin mono" type="number" step="0.05" :value="typeof expr === 'object' && expr.min != null ? expr.min : ''"
+                     @change="autoEdit(selL, k, 'min', $event.target.value, true)"></label>
+              <label>max <input class="numin mono" type="number" step="0.05" :value="typeof expr === 'object' && expr.max != null ? expr.max : ''"
+                     @change="autoEdit(selL, k, 'max', $event.target.value, true)"></label>
+              <label>smooth <input class="numin mono" type="number" step="0.05" min="0" max="0.95" :value="typeof expr === 'object' && expr.smooth != null ? expr.smooth : ''"
+                     @change="autoEdit(selL, k, 'smooth', $event.target.value, true)"></label>
+            </div>
           </div>
           <p class="empty" v-if="!Object.keys(selL.auto || {}).length">No automations yet. Open the <b>Layer</b> tab and press <code>ƒ</code> beside a slider.</p>
         </div>
@@ -241,6 +358,19 @@ const post = computed(() => { S.rev; return S.vx?.project?.current?.post || []; 
 .hint code, .auto-k { font-family: 'IBM Plex Mono', monospace; color: var(--data); font-size: 10.5px; }
 .auto-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
 .auto-k { min-width: 56px; flex-shrink: 0; }
+.auto-card { border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; margin-bottom: 7px; }
+.auto-card.off { opacity: .5; }
+.auto-card .auto-row { margin-bottom: 4px; }
+.auto-adv { display: flex; gap: 10px; flex-wrap: wrap; }
+.auto-adv label { font-size: 10px; color: var(--ink3); display: flex; align-items: center; gap: 4px; }
+.auto-adv .numin { width: 52px; }
+.auto-row.browse { gap: 5px; }
+.an-who { font-size: 10.5px; color: var(--ink3); max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; flex-shrink: 0; }
+.an-who:hover { color: var(--acc); }
+.an-exp { font-size: 10px; color: var(--data); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; text-align: right; }
+.anlive { color: var(--data); flex-shrink: 0; }
+.grp-t { display: flex; align-items: center; gap: 5px; }
+.tabs button { display: inline-flex; align-items: center; gap: 4px; }
 .addfx { margin-bottom: 10px; }
 .fxcard { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
 .fxcard.off { opacity: .5; }

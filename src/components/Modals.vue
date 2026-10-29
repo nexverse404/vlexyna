@@ -325,6 +325,68 @@ function saveAuto() {
   closeModal();
 }
 
+/* ───────── media library ───────── */
+const mediaTab = ref('stock');
+const libRev = ref(0);
+const MEDIA_TABS = [['stock', 'Stock'], ['image', 'Images'], ['video', 'Videos'], ['font', 'Fonts'], ['audio', 'Audio']];
+const stockList = computed(() => { libRev.value; return S.vx?.assets?.stock ? S.vx.assets.stock() : []; });
+const libList = computed(() => { libRev.value; return (S.vx?.assets?.library ? S.vx.assets.library() : []).filter(x => x.kind !== 'audio'); });
+const projAssets = computed(() => {
+  S.rev;
+  const out = [];
+  for (const a of (S.vx?.assets?.map?.values?.() || [])) out.push(a);
+  return out;
+});
+function pickMediaFile(accept) {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = accept; inp.multiple = true;
+  inp.onchange = async () => {
+    const VX = S.vx;
+    for (const f of inp.files) {
+      const isFont = (f.type || '').startsWith('font') || /\.(ttf|otf|woff2?)$/i.test(f.name);
+      if (isFont) {
+        const dataUrl = await U.readFile(f);
+        VX.assets.addData('font', f.name, dataUrl);
+        if (dataUrl.length < 1500000 && VX.assets.libraryAdd('font', f.name, dataUrl)) toast(`“${f.name}” saved to library`);
+        else toast(`Font “${f.name}” registered (too large for the saved library)`, 'warn');
+        continue;
+      }
+      const id = await VX.assets.addFile(f);
+      const kind = f.type.startsWith('video') ? 'video' : 'image';
+      const a = VX.assets.get(id);
+      if (a?.dataUrl && a.dataUrl.length < 1500000) {
+        if (VX.assets.libraryAdd(kind, f.name, a.dataUrl)) toast(`“${f.name}” saved to library`);
+        else toast(`“${f.name}” added to this project (too large for the saved library)`, 'warn');
+      } else toast(`“${f.name}” added to this project (too large for the saved library)`, 'warn');
+    }
+    libRev.value++;
+  };
+  inp.click();
+}
+function useStock(entry) {
+  const VX = S.vx;
+  const id = VX.assets.libraryUse(entry);
+  const l = VX.layers.make('image'); l.props.assetId = id; l.name = entry.name.replace('Stock · ', '');
+  VX.project.current.layers.push(l); VX.project.snapshot('add stock image');
+  S.sel = l.id; touch();
+  toast(`${entry.name} added`);
+}
+function useLibItem(entry, i) {
+  const VX = S.vx;
+  if (entry.kind === 'font') { VX.assets.addData('font', entry.name, entry.dataUrl); toast(`Font “${entry.name}” registered`); return; }
+  const id = VX.assets.libraryUse(entry);
+  const l = VX.layers.make(entry.kind === 'video' ? 'video' : 'image');
+  l.props.assetId = id; l.name = entry.name.slice(0, 24);
+  VX.project.current.layers.push(l); VX.project.snapshot('add from library');
+  S.sel = l.id; touch();
+}
+async function useLibAudio() {
+  /* the demo beat doubles as the stock audio track */
+  closeModal(); await loadDemo();
+}
+function removeLib(i) { S.vx.assets.libraryRemove(i); libRev.value++; }
+function dataUriThumb(entry) { return entry.dataUrl; }
+
 /* ───────── prompt / confirm ───────── */
 const promptVal = ref('');
 watch(() => S.modal, (mm) => { if (mm?.type === 'prompt') promptVal.value = mm.def ?? ''; }, { immediate: true });
@@ -534,12 +596,13 @@ function welcomeTemplates() { S.modal = { type: 'templates' }; }
               <div class="sc"><span>T</span> templates</div>
               <div class="sc"><span>R</span> audio reactivity mixer</div>
               <div class="sc"><span>G</span> global variables</div>
+              <div class="sc"><span>Click</span> select layers on the canvas</div>
               <div class="sc"><span>F3</span> performance overlay</div>
               <div class="sc"><span>Ctrl+click</span> multi-select layers</div>
               <div class="sc"><span>Ctrl+scroll</span> zoom the stage</div>
               <div class="sc"><span>?</span> this dialog</div>
               <h4>Good to know</h4>
-              <p class="hint">Drop audio, images, video, LRC/TTML lyrics, Lottie .json, font files (.ttf/.otf/.woff) or .vlx projects anywhere. <b>ƒ</b> beside a slider binds it to the music — try <code>beat</code> or <code>bass*2</code>. Timeline clips drag to move, edges trim. Right-click layers and effects for more.</p>
+              <p class="hint">Drop audio, images, video, LRC/TTML lyrics, Lottie .json, font files (.ttf/.otf/.woff) or .vlx projects anywhere. <b>ƒ</b> beside a slider binds it to the music — try <code>beat</code>, <code>bass*2</code> or <code>an('Analyzer 1')</code> (custom analyzers live in the Inspector with nothing selected). Timeline clips drag to move, edges trim; right-click them for actions. Every slider edit is undoable. The <b>Media library</b> keeps images, videos and fonts reusable across projects.</p>
             </div>
           </div>
         </template>
@@ -568,6 +631,55 @@ function welcomeTemplates() { S.modal = { type: 'templates' }; }
           <input class="tin mono big-in" v-model="autoExpr" placeholder="e.g. beat*0.3" autofocus @keydown.enter="saveAuto">
           <p class="hint auto-err" v-if="autoExpr.trim()">{{ autoErr }}</p>
           <div class="m-foot"><button class="btn primary" @click="saveAuto">Apply</button></div>
+        </template>
+
+        <!-- MEDIA LIBRARY -->
+        <template v-else-if="M.type === 'media'">
+          <div class="m-h"><h3>Media library</h3><button class="ib" @click="closeModal()" v-html="U.icon('close')"></button></div>
+          <div class="m-tabs">
+            <button v-for="t in MEDIA_TABS" :key="t[0]" :class="{ on: mediaTab === t[0] }" @click="mediaTab = t[0]">{{ t[1] }}</button>
+          </div>
+
+          <template v-if="mediaTab === 'stock'">
+            <p class="hint">Generated in your browser — no downloads, free to use in any project.</p>
+            <div class="media-grid">
+              <div v-for="(st, i) in stockList" :key="i" class="media-card" @click="useStock(st)">
+                <img :src="dataUriThumb(st)" alt="">
+                <span class="mc-n">{{ st.name }}</span>
+                <span class="mc-add">＋ add</span>
+              </div>
+            </div>
+            <div class="x-row" style="margin-top:12px">
+              <span>Audio</span>
+              <button class="btn small" @click="useLibAudio"><span v-html="U.icon('music', 12)"></span>Demo beat (synthesized)</button>
+            </div>
+          </template>
+
+          <template v-else-if="mediaTab === 'audio'">
+            <p class="hint">Audio attaches to the whole project. Drop any audio file anywhere, or synthesize a track:</p>
+            <button class="btn small" @click="useLibAudio"><span v-html="U.icon('music', 12)"></span>Demo beat</button>
+          </template>
+
+          <template v-else>
+            <div class="x-row" style="margin-bottom:10px">
+              <span>Upload</span>
+              <button class="btn small" @click="pickMediaFile(mediaTab === 'image' ? 'image/*' : mediaTab === 'video' ? 'video/*' : '.ttf,.otf,.woff,.woff2,font/*')">
+                <span v-html="U.icon('add', 12)"></span>Upload {{ mediaTab }}s
+              </button>
+              <span class="lab">saved in this browser · reused across projects</span>
+            </div>
+            <div class="media-grid" v-if="libList.filter(x => x.kind === mediaTab).length">
+              <div v-for="(entry, i) in libList.filter(x => x.kind === mediaTab)" :key="i" class="media-card">
+                <img v-if="entry.kind !== 'font'" :src="dataUriThumb(entry)" alt="" @click="useLibItem(entry, i)">
+                <span v-else class="mc-font" @click="useLibItem(entry, i)">Aa</span>
+                <span class="mc-n">{{ entry.name }}</span>
+                <span class="mc-add" @click="useLibItem(entry, i)">＋ use</span>
+                <button class="ib tiny mc-del" @click.stop="removeLib(i)" v-html="U.icon('trash', 12)"></button>
+              </div>
+            </div>
+            <p class="empty" v-else>Nothing in the library yet — upload files above (under ~1.5 MB each they persist in this browser).</p>
+            <p class="hint" style="margin-top:10px">In this project: {{ projAssets.filter(a => a.kind === mediaTab).length }} {{ mediaTab }} asset(s).</p>
+          </template>
         </template>
 
         <!-- CUSTOM SIZE -->
@@ -698,4 +810,19 @@ function welcomeTemplates() { S.modal = { type: 'templates' }; }
 .auto-err { margin: 8px 0 0; }
 .c-msg { font-size: 13px; color: var(--ink2); line-height: 1.6; }
 .cs-presets { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+
+/* media library */
+.m-tabs { display: flex; gap: 2px; background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 2px; margin-bottom: 12px; }
+.m-tabs button { border: none; background: none; color: var(--ink3); font-size: 11.5px; font-weight: 600; padding: 4px 12px; border-radius: 5px; cursor: pointer; font-family: inherit; }
+.m-tabs button.on { background: var(--panel2); color: var(--ink); }
+.media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px; }
+.media-card { position: relative; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; cursor: pointer; background: var(--panel2); }
+.media-card:hover { border-color: var(--acc); }
+.media-card img { display: block; width: 100%; height: 72px; object-fit: cover; }
+.mc-font { display: flex; align-items: center; justify-content: center; height: 72px; font-size: 30px; font-weight: 700; color: var(--acc); }
+.mc-n { display: block; font-size: 10.5px; color: var(--ink2); padding: 5px 7px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-add { position: absolute; top: 5px; right: 5px; font-size: 9.5px; background: rgba(8,10,14,.85); border: 1px solid var(--line2); color: var(--acc); border-radius: 4px; padding: 1px 6px; opacity: 0; transition: opacity .15s; }
+.media-card:hover .mc-add { opacity: 1; }
+.mc-del { position: absolute; top: 4px; left: 4px; opacity: 0; }
+.media-card:hover .mc-del { opacity: 1; }
 </style>
