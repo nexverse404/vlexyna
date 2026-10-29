@@ -277,6 +277,32 @@ if (VX) {
     check(!!doc.querySelector('.transport .speed'), 'playback speed (nightcore) select in transport');
   }
 
+  /* ── v2.4: camera panel (no selection) ── */
+  {
+    const tick4 = () => new Promise(r => setTimeout(r, 30));
+    const VX3 = chosen.window.VX;
+    /* ensure nothing selected → inspector shows camera group */
+    chosen.window.VX.project.ensureCamera(chosen.window.VX.project.current);
+    /* deselect: click the already-selected row if any */
+    const inspTxt0 = doc.querySelector('.insp')?.textContent || '';
+    if (!inspTxt0.includes('Camera')) {
+      /* something is selected from earlier checks — dispatch Escape-like deselect via store */
+      chosen.window.dispatchEvent(new chosen.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      await tick4();
+    }
+    const inspTxt = doc.querySelector('.insp')?.textContent || '';
+    check(inspTxt.includes('Camera'), 'camera panel visible with no selection');
+    check(inspTxt.includes('Beat zoom'), 'camera punch-in slider present');
+    const punch = [...doc.querySelectorAll('.insp button')].find(b => b.textContent.trim() === 'Punch');
+    check(!!punch, 'camera presets (Punch/Breathe/Quake/Off)');
+    if (punch) {
+      punch.click(); await tick4();
+      check(VX3.project.current.camera.on === true && VX3.project.current.camera.zoomBeat > 0, 'Punch preset arms the reactive camera');
+      const off = [...doc.querySelectorAll('.insp button')].find(b => b.textContent.trim() === 'Off');
+      off && off.click(); await tick4();
+    }
+  }
+
   /* the built CSS must carry the breakpoints */
   const css = fs.readdirSync(distDir).filter(f => f.endsWith('.css')).map(f => fs.readFileSync(path.join(distDir, f), 'utf8')).join('');
   check(/@media[^{]*max-width:\s*1220px/.test(css), 'CSS has the drawer breakpoint (1220px)');

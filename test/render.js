@@ -79,6 +79,7 @@ const shots = [
   ['hiphop', 'Hip-Hop Bars'], ['lofi', 'Lo-Fi Study'], ['dnb', 'DnB Rush'], ['metal', 'Metal Storm'],
   ['jazz', 'Jazz Club'], ['ambient', 'Ambient Drift'], ['podcast', 'Podcast Pro'], ['dubstep', 'Dubstep Drop'],
   ['trailer', 'Cinematic Trailer'], ['kpop', 'K-Pop Sparkle'], ['reggaeton', 'Reggaeton Heat'], ['gospel', 'Gospel Light'],
+  ['bassedit', 'Bass Boost Edit'], ['shiver', 'Magic Shivers'],
 ];
 for (const [slug, name] of shots) {
   const t = VX.templates.list.find(x => x.name === name);
@@ -235,5 +236,31 @@ for (const [slug, name] of shots) {
   if (buf.slice(0, 4).toString('ascii') !== 'GIF8') throw new Error('not a GIF: ' + buf.slice(0, 6).toString('hex'));
   if (buf.length < 800) throw new Error('GIF suspiciously small: ' + buf.length);
   console.log('✓ exported real GIF —', downloads[0].name, buf.length, 'bytes');
+}
+/* camera — audio-reactive zoom/shake must move real pixels (edit-style punch) */
+{
+  const proj = VX.project.current;
+  VX.templates.apply(VX.templates.list.find(t => t.name === 'Bass Boost Edit'));
+  const cam = proj.camera;
+  const c = createCanvas(320, 180);
+  const sum = () => {
+    const d = c.getContext('2d').getImageData(0, 0, 320, 180).data;
+    let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2];
+    return s;
+  };
+  eng.bands = { bass: .9, mid: .1, treble: .05, level: .35 };
+  eng.beat = 1;
+  for (let i = 0; i < 14; i++) VX.renderer.render(c, 1.2, { dt: 1 / 60, playing: true });   /* warm the bars */
+  cam.on = true;
+  VX.renderer.render(c, 1.2, { dt: 1 / 60, playing: true });
+  const withCam = sum();
+  cam.on = false;
+  VX.renderer.render(c, 1.2, { dt: 1 / 60, playing: true });
+  const noCam = sum();
+  if (Math.abs(withCam - noCam) < 4000) throw new Error('camera punch invisible: ' + withCam + ' vs ' + noCam);
+  console.log('✓ camera punch changes pixels —', Math.round(withCam), 'vs', Math.round(noCam), '(Δ' + Math.round(Math.abs(withCam - noCam)) + ')');
+  fs.writeFileSync(path.join(OUT, 'camera-punch.png'), c.toBuffer('image/png'));
+  eng.bands = { bass: 0, mid: 0, treble: 0, level: 0 };
+  eng.beat = 0;
 }
 console.log('done →', OUT);

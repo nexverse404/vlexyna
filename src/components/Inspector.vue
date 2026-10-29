@@ -27,6 +27,41 @@ const selL = computed(() => {
   if (!S.vx?.project?.current) return null;
   return S.vx.project.current.layers.find(l => l.id === S.sel) || null;
 });
+
+/* ── global camera — zoom & shake with the music (edit-style camera) ── */
+const camDefs = [
+  { t: 'bool', key: 'on', label: 'Camera on' },
+  { t: 'num', key: 'zoom', label: 'Zoom', min: .2, max: 4, step: .01 },
+  { t: 'num', key: 'x', label: 'Pan X', min: -1, max: 1, step: .005 },
+  { t: 'num', key: 'y', label: 'Pan Y', min: -1, max: 1, step: .005 },
+  { t: 'num', key: 'rot', label: 'Rotation (°)', min: -45, max: 45, step: .5 },
+  { t: 'num', key: 'zoomBass', label: 'Bass zoom', min: 0, max: 1, step: .01 },
+  { t: 'num', key: 'zoomBeat', label: 'Beat zoom (punch-in)', min: 0, max: .5, step: .005 },
+  { t: 'num', key: 'rotBeat', label: 'Beat rotation', min: 0, max: 20, step: .5 },
+  { t: 'num', key: 'shake', label: 'Shake', min: 0, max: 5, step: .05 },
+  { t: 'num', key: 'shakeBeat', label: 'Beat shake', min: 0, max: 5, step: .05 },
+  { t: 'num', key: 'rotShake', label: 'Shake rotation (°)', min: 0, max: 10, step: .1 },
+];
+const CAM_FALLBACK = { on: false, zoom: 1, x: 0, y: 0, rot: 0, zoomBass: 0, zoomBeat: 0, rotBeat: 0, shake: 0, shakeBeat: 0, rotShake: 1 };
+function cam() {
+  const p = S.vx?.project?.current;
+  if (!p) return CAM_FALLBACK;
+  if (!p.camera) S.vx.project.ensureCamera(p);
+  return p.camera || CAM_FALLBACK;
+}
+function camVal(k) { S.rev; return cam()[k]; }
+function setCam(k, v, commit) { cam()[k] = v; if (commit) S.vx.project.autosave(); touch(); }
+function camPreset(name) {
+  const P = {
+    punch: { on: true, zoom: 1.04, zoomBass: .025, zoomBeat: .05, shake: 0, shakeBeat: .35, rotShake: .8, rot: 0, rotBeat: 0, x: 0, y: 0 },
+    breathe: { on: true, zoom: 1.1, zoomBass: .06, zoomBeat: 0, shake: 0, shakeBeat: 0, rotShake: 1, rot: 0, rotBeat: 0, x: 0, y: 0 },
+    quake: { on: true, zoom: 1.05, zoomBass: .02, zoomBeat: .04, shake: .8, shakeBeat: 1.2, rotShake: 2, rot: 0, rotBeat: 1, x: 0, y: 0 },
+    off: { on: false },
+  };
+  Object.assign(cam(), P[name] || {});
+  S.vx.project.autosave();
+  touch();
+}
 const selDef = computed(() => (selL.value && S.vx.layers.byId[selL.value.type]) || null);
 /* force controls to re-read values when the project itself changes (undo, template, import) */
 const genKey = computed(() => `${S.rev}:${S.sel}:${tab.value}`);
@@ -105,7 +140,18 @@ const post = computed(() => { S.rev; return S.vx?.project?.current?.post || []; 
     <div class="pbody">
       <!-- no selection: global post effects -->
       <template v-if="!selL">
-        <p class="hint">No layer selected — editing <b>global post effects</b>, applied to the whole frame after all layers.</p>
+        <div class="grp">
+          <div class="grp-t">Camera — moves with the music</div>
+          <ParamControl v-for="cd in camDefs" :key="cd.key" :param="cd"
+                        :get="() => camVal(cd.key)" :set="(v, c) => setCam(cd.key, v, c)" />
+          <div class="btn-row wrap" style="margin-top:6px">
+            <button class="btn small" @click="camPreset('punch')">Punch</button>
+            <button class="btn small" @click="camPreset('breathe')">Breathe</button>
+            <button class="btn small" @click="camPreset('quake')">Quake</button>
+            <button class="btn small" @click="camPreset('off')">Off</button>
+          </div>
+        </div>
+        <p class="hint">No layer selected — editing <b>global post effects</b>, applied to the whole frame after all layers. The <b>camera</b> above transforms everything together: zoom punches in on the bass and beats, shake jolts on impact.</p>
         <button class="btn small addfx" @click="addFx(post, null)"><span v-html="U.icon('add', 12)"></span>Add global effect</button>
         <div :key="'gp' + genKey">
           <div v-for="(f, i) in post" :key="i" class="fxcard" :class="{ off: !f.enabled }" @contextmenu="fxMenu($event, post, i)">

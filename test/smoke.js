@@ -154,7 +154,7 @@ const noWarns = () => { if (warns.length) { const w = warns.splice(0); throw new
   console.log('\n── registries ──');
   ok('22 layer types registered', () => { if (VX.layers.list.length !== 22) throw new Error('got ' + VX.layers.list.length); });
   ok('64 effects registered', () => { if (VX.fx.list.length !== 64) throw new Error('got ' + VX.fx.list.length); });
-  ok('30 templates registered', () => { if (VX.templates.list.length !== 30) throw new Error('got ' + VX.templates.list.length); });
+  ok('32 templates registered', () => { if (VX.templates.list.length !== 32) throw new Error('got ' + VX.templates.list.length); });
   ok('every fx def has id/name/cat/params', () => {
     for (const d of VX.fx.list) {
       if (!d.id || !d.name || !d.cat || !Array.isArray(d.params) || typeof d.apply !== 'function') throw new Error(d.id || 'unnamed');
@@ -564,6 +564,52 @@ const noWarns = () => { if (warns.length) { const w = warns.splice(0); throw new
   ok('video loop + lyrics speedMul params exist', () => {
     if (!VX.layers.byId.video.params.flat(9).some(p => p.key === 'loop')) throw new Error('video loop');
     if (!VX.layers.byId.lyrics.params.flat(9).some(p => p.key === 'speedMul')) throw new Error('lyrics speedMul');
+  });
+
+  console.log('\n── v2.4: reactive camera · edit recipes ──');
+  ok('camera defaults + migration', () => {
+    VX.project.ensureCamera(VX.project.current);
+    const c = VX.project.current.camera;
+    if (c.on !== false || c.zoom !== 1) throw new Error('bad defaults');
+    /* old project without camera gets defaults on restore */
+    const bare = JSON.parse(JSON.stringify({ ...VX.project.current, camera: undefined }));
+    delete bare.camera;
+    VX.project.restore(JSON.stringify(bare));
+    if (!VX.project.current.camera || VX.project.current.camera.zoom !== 1) throw new Error('migration failed');
+  });
+  ok('camera bass zoom is computed from the audio', () => {
+    VX.templates.apply(VX.templates.list.find(t => t.name === 'Bass Boost Edit'));
+    const c = VX.project.current.camera;
+    if (!c.on || !c.zoomBass) throw new Error('edit template has no reactive camera');
+    const cv = document.createElement('canvas'); cv.width = 96; cv.height = 96;
+    const eng = VX.audio.engine;
+    eng.bands = { bass: .95, mid: 0, treble: 0, level: .3 };
+    VX.renderer.render(cv, 1.2, { dt: 1 / 60, playing: true });
+    const hot = VX.renderer.lastCam;
+    eng.bands = { bass: .02, mid: 0, treble: 0, level: .05 };
+    VX.renderer.render(cv, 1.2, { dt: 1 / 60, playing: true });
+    const cold = VX.renderer.lastCam;
+    if (!hot || !cold) throw new Error('camera pass never ran');
+    if (!(hot.zoom > cold.zoom + .02)) throw new Error('bass zoom not reactive: ' + hot.zoom + ' vs ' + cold.zoom);
+    eng.bands = { bass: 0, mid: 0, treble: 0, level: 0 };
+  });
+  ok('camera shake re-rolls between frames', () => {
+    VX.project.current.camera = { on: true, zoom: 1, x: 0, y: 0, rot: 0, zoomBass: 0, zoomBeat: 0, rotBeat: 0, shake: 2, shakeBeat: 0, rotShake: 1 };
+    const cv = document.createElement('canvas'); cv.width = 96; cv.height = 96;
+    const eng = VX.audio.engine;
+    eng.bands = { bass: 0, mid: 0, treble: 0, level: 0 };
+    VX.renderer.render(cv, 2.0, { dt: 1 / 60, playing: true });
+    const a = { ...VX.renderer.lastCam };
+    VX.renderer.render(cv, 2.05, { dt: 1 / 60, playing: true });
+    const b = { ...VX.renderer.lastCam };
+    if (a.px === b.px && a.py === b.py) throw new Error('shake frozen: ' + JSON.stringify(a));
+    VX.project.current.camera.on = false;
+  });
+  ok('Magic Shivers template applies with camera + tag tokens', () => {
+    const t = VX.templates.list.find(x => x.name === 'Magic Shivers');
+    VX.templates.apply(t);
+    if (!VX.project.current.camera.on) throw new Error('no camera');
+    if (!VX.project.current.layers.some(l => l.type === 'text' && l.props.text.includes('{title}'))) throw new Error('no tag tokens');
   });
 
   console.log('\n── final: no window errors during whole run ──');

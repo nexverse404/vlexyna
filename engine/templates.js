@@ -24,6 +24,7 @@ import { VX, U } from './util.js';
     app.pause();
     proj.layers = t.layers.map(l => mk(l.type, l)).filter(Boolean);
     proj.post = (t.post || []).map(f => ({ ...f, params: { ...f.params } }));
+    proj.camera = { on: false, zoom: 1, x: 0, y: 0, rot: 0, zoomBass: 0, zoomBeat: 0, rotBeat: 0, shake: 0, shakeBeat: 0, rotShake: 1, ...(t.camera || {}) };
     if (t.vars) proj.vars = { ...t.vars };
     proj.name = proj.name === 'Untitled' ? t.name : proj.name;
     VX.project.snapshot('template: ' + t.name);
@@ -404,6 +405,38 @@ import { VX, U } from './util.js';
       { type: 'text', y: .82, props: { text: 'AMAZING', size: 5, weight: 800, c1: '#fffbeb', letterSpacing: 18, shadowBlur: 30, anim: 'float', animAmt: .2 } },
     ],
     post: [FXm('bloom', { threshold: .68, radius: 28, intensity: .65 }), FXm('gradmap', { shadow: '#181104', mid: '#b45309', high: '#fffbeb', mix: .18 })],
+  });
+
+  /* ═══════════ edit recipes — bars + animated video + branding + reactive camera ═══════════ */
+
+  T.add({
+    name: 'Bass Boost Edit', desc: 'Mirror bars, center video, camera punch — the classic edit',
+    grad: ['#f43f5e', '#fbbf24'],
+    layers: [
+      { type: 'background', props: { mode: 'gradient', c1: '#05060a', c2: '#12081a', vign: .55 } },
+      { type: 'spectrum', y: .5, props: { mode: 'mirror', count: 96, barWidth: .38, height: .78, c1: '#f43f5e', c2: '#fbbf24', glow: 30, curve: .78, alphaFloor: .16 }, auto: { height: { src: 'beat', amt: .06 } } },
+      { type: 'video', name: 'Center video', props: { size: .58, fit: 'cover', pulse: .12, circle: false, shadow: 40 } },
+      { type: 'text', name: 'Brand', x: .16, y: .12, props: { text: 'YOUR BRAND', size: 2.6, weight: 800, c1: '#f8fafc', letterSpacing: 10, shadowBlur: 16, anim: 'pulse', animAmt: .25 } },
+      { type: 'text', name: 'Handle', x: .84, y: .92, props: { text: '@yourhandle', size: 1.8, weight: 600, c1: '#fbbf24', letterSpacing: 6 } },
+      { type: 'progress', y: .97, props: {} },
+    ],
+    camera: { on: true, zoom: 1.04, zoomBass: .025, zoomBeat: .05, shakeBeat: .35, rotShake: .8 },
+    post: [FXm('glow', { radius: 9, intensity: .16 }), FXm('vignette', { strength: .5 })],
+  });
+
+  T.add({
+    name: 'Magic Shivers', desc: 'Radial bar ring around the clip, breathing zoom',
+    grad: ['#22d3ee', '#a78bfa'],
+    layers: [
+      { type: 'background', props: { mode: 'gradient', c1: '#02030a', c2: '#0a1026', angle: 200, vign: .5 } },
+      { type: 'particles', props: { count: 60, size: 3, c1: '#22d3ee', c2: '#a78bfa', speed: 18, glow: 12, twinkle: .8, beatBurst: .5 } },
+      { type: 'spectrum', y: .5, props: { mode: 'radial', count: 120, radius: .27, height: .22, barWidth: .42, c1: '#22d3ee', c2: '#a78bfa', glow: 26, curve: .8, alphaFloor: .25 }, auto: { spin: { src: 'level', amt: .1 } } },
+      { type: 'video', name: 'Center video', props: { size: .5, fit: 'cover', pulse: .08, circle: true, shadow: 44 } },
+      { type: 'text', name: 'Brand', x: .5, y: .09, props: { text: 'MAGIC SHIVERS', size: 3.2, weight: 900, gradient: true, c1: '#22d3ee', c2: '#a78bfa', letterSpacing: 22, shadowBlur: 26, anim: 'pulse', animAmt: .3 } },
+      { type: 'text', name: 'Track', x: .5, y: .93, props: { text: '{title} — {artist}', size: 2, weight: 600, c1: '#cbd5e1', letterSpacing: 6 } },
+    ],
+    camera: { on: true, zoom: 1.08, zoomBass: .05, zoomBeat: .03, rotBeat: .4, shakeBeat: .18, rotShake: .5 },
+    post: [FXm('bloom', { threshold: .6, radius: 22, intensity: .7 }), FXm('vignette', { strength: .45 })],
   });
 
   /* ═══════════ community: your own template library (local remix flow) ═══════════ */

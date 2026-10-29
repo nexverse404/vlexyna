@@ -136,6 +136,36 @@ import { VX, U } from './util.js';
       } catch (e) { console.warn('layer error:', layer.type, e); }
     }
 
+    /* camera — one global audio-reactive transform over the whole composition.
+       zoom punches in with bass/beats, pan/rotate drift, shake jolts on impact. */
+    const cam = proj.camera;
+    if (cam && cam.on) {
+      const zoom = Math.max(.05, (cam.zoom ?? 1) + a.bass * (cam.zoomBass || 0) + a.beat * (cam.zoomBeat || 0));
+      const rot = (((cam.rot || 0)) + (cam.rotBeat || 0) * a.beat) * Math.PI / 180;
+      const shakePx = ((cam.shake || 0) + (cam.shakeBeat || 0) * a.beat) * W * .01;
+      const fq = Math.floor(t * 60);   /* shake re-rolls at 60 Hz */
+      const px = (cam.x || 0) * W + (shakePx ? (U.hash(fq * 1.7) - .5) * 2 * shakePx : 0);
+      const py = (cam.y || 0) * H + (shakePx ? (U.hash(fq * 3.1 + 7) - .5) * 2 * shakePx : 0);
+      const jr = shakePx ? (U.hash(fq * 5.3 + 13) - .5) * 2 * (cam.rotShake ?? 1) * Math.PI / 180 * Math.min(1, shakePx / (W * .01)) : 0;
+      R.lastCam = { zoom, px, py, rot: rot + jr };   /* test/inspection hook */
+      if (Math.abs(zoom - 1) > 1e-4 || rot || jr || Math.abs(px) > .5 || Math.abs(py) > .5) {
+        const buf = getBuf(2, W, H);
+        const bx2 = buf.getContext('2d');
+        bx2.setTransform(1, 0, 0, 1, 0, 0); bx2.globalAlpha = 1; bx2.globalCompositeOperation = 'source-over'; bx2.filter = 'none';
+        bx2.clearRect(0, 0, W, H);
+        bx2.drawImage(canvas, 0, 0);
+        x.setTransform(1, 0, 0, 1, 0, 0);
+        x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
+        x.fillStyle = '#000'; x.fillRect(0, 0, W, H);
+        x.save();
+        x.translate(W / 2 + px, H / 2 + py);
+        x.rotate(rot + jr);
+        x.scale(zoom, zoom);
+        x.drawImage(buf, -W / 2, -H / 2);
+        x.restore();
+      }
+    }
+
     /* global post FX */
     if (proj.post && proj.post.length) {
       const main = canvas;

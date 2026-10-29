@@ -8,7 +8,7 @@ Built with **Tauri 2 + Vite + Vue 3**, on top of a zero-dependency
 Canvas2D/WebGL engine that ships as plain ES modules.
 
 [![CI](https://github.com/nexverse404/vlexyna/actions/workflows/ci.yml/badge.svg)](https://github.com/nexverse404/vlexyna/actions/workflows/ci.yml)
-![effects](https://img.shields.io/badge/effects-64-7c6cf0) ![layers](https://img.shields.io/badge/layer%20types-22-22d3ee) ![templates](https://img.shields.io/badge/templates-30-f472b6)
+![effects](https://img.shields.io/badge/effects-64-7c6cf0) ![layers](https://img.shields.io/badge/layer%20types-22-22d3ee) ![templates](https://img.shields.io/badge/templates-32-f472b6)
 
 ## Run it
 
@@ -35,13 +35,13 @@ through any static server rooted at the repo root).
 | **22 layer types** | spectrum (bars/radial/wave/LED…), waveform, plasma/aurora, particles, 3D particles, starfield, tunnel, beat rings, bokeh orbs, confetti, perspective grid, shapes, **GLSL shader layer** (write your own fragment shaders with audio uniforms + 5 presets), spherical field, image, video, **Lottie animations** (drop any lottie .json — free-running or synced to the music), **Butterchurn** (the MilkDrop-class preset visualizer, hundreds of classic presets), text, lyrics, progress bar, background |
 | **Audio reactivity** | bass / mid / treble / level / beat detection, live mic mode, demo beat synthesized in-browser, wave + spectrum data available to layers, shaders *and* automations (`beat*0.3`, `fft(80,200)`, `freq(0)`, `easeInOut(x)`, `atan2`, `delta('k',x)`, `sin(t*2)*.2` — bind any slider with the **ƒ** button) — plus a global **reactivity mixer** (R) that scales each band and the beat detector for the whole project, and a **playback speed** control (0.75×–2× — nightcore/slowed, pitch follows like tape) |
 | **Four export engines** | **MP4 offline** — frame-exact WebCodecs encoding via mediabunny with the audio spectrum *precomputed* by a built-in FFT, so offline renders are fully audio-reactive and usually faster than real time, with your choice of **H.264 / H.265 / VP9 / AV1** (with graceful fallback) and a file-size estimate; **real-time video** (WebM/MP4 via MediaRecorder) everywhere else; **PNG frame sequences** zipped; **animated GIF** — audio-reactive, quantized and encoded in-browser, social-ready. Any canvas size up to 8K, PNG frame grabs any time |
-| **Editor craft** | on-canvas transform gizmo (drag to move, handles to rotate/scale with live readout), stage zoom (fit → 200%, Ctrl+scroll), clipboard (Ctrl+C/X/V pastes at the playhead), split layers at the playhead (S), **multi-select** (Ctrl/Cmd-click — bulk delete), **shy layers** (hide from the list, keep rendering), drag-reorder layers, per-layer opacity/blend/mirror/automation, **global variables** (G) — named project-wide knobs usable in every math automation and injected into shaders as `uG_name`, **F3 performance overlay** |
+| **Editor craft** | on-canvas transform gizmo (drag to move, handles to rotate/scale with live readout), stage zoom (fit → 200%, Ctrl+scroll), clipboard (Ctrl+C/X/V pastes at the playhead), split layers at the playhead (S), **multi-select** (Ctrl/Cmd-click — bulk delete), **shy layers** (hide from the list, keep rendering), drag-reorder layers, per-layer opacity/blend/mirror/automation, **global variables** (G) — named project-wide knobs usable in every math automation and injected into shaders as `uG_name`, **F3 performance overlay**, **audio-reactive camera** — one global zoom/pan/rotate/shake that punches in on the bass and jolts on beats (Punch / Breathe / Quake presets in the Inspector) |
 | **Custom fonts & text variables** | drop any .ttf/.otf/.woff — registered live and offered in every text/lyrics font picker, round-tripped inside .vlx projects. Text layers read ID3 tags straight off the track: `{title}`, `{artist}`, `{album}`, `{year}`, `{genre}`, `{bpm}`, `{filename}` — the transport shows what it found |
 | **Lyrics** | LRC / TTML import, karaoke sweep + 4 more line styles, tap-sync time stamping |
 | **Timeline** | drag clips to move, edges to trim, snap, per-layer lanes, waveform + ruler |
 | **Image tools** | interactive crop editor, circle mask, contain/cover, pulse/spin/bob motion |
 | **Projects** | autosaved locally, multi-project browser, undo/redo, `.vlx` project import/export (share projects as files — no cloud, no account) |
-| **Templates & remixing** | 30 genre-ready starting points (Trap Nation, Hip-Hop Bars, Lo-Fi Study, DnB Rush, Metal Storm, Jazz Club, Podcast Pro, Cinematic Trailer, K-Pop Sparkle, Reggaeton Heat…) plus **save any project as your own reusable template** and share it as a .vlx file |
+| **Templates & remixing** | 32 genre-ready starting points (incl. **Bass Boost Edit** and **Magic Shivers** — bars + center video + branding + reactive camera, the YouTube-edit recipe in one click) (Trap Nation, Hip-Hop Bars, Lo-Fi Study, DnB Rush, Metal Storm, Jazz Club, Podcast Pro, Cinematic Trailer, K-Pop Sparkle, Reggaeton Heat…) plus **save any project as your own reusable template** and share it as a .vlx file |
 | **Design** | taste-skill house style — Space Grotesk + IBM Plex Mono, one accent, flat surfaces, honest empty states |
 | **Any viewport** | progressive layout — panels become drawers and the timeline collapses on narrow screens, short windows keep a usable stage, keyboard-focus rings, reduced-motion support |
 
@@ -55,7 +55,7 @@ src/          Vue 3 app (components, store, app controller, design system)
 src-tauri/    Tauri 2 shell (thin Rust wrapper + unit tests, capabilities,
               icons generated by npm run icons)
 web/          legacy no-build web app (same engine)
-test/         smoke.js (177 checks) · boot.js (52 built-app checks) · render.js (visual QA + GIF)
+test/         smoke.js (183 checks) · boot.js (56 built-app checks) · render.js (visual QA + GIF)
 ```
 
 ## Tests
@@ -63,7 +63,7 @@ test/         smoke.js (177 checks) · boot.js (52 built-app checks) · render.j
 ```bash
 npm test              # headless smoke: all layers, all 64 fx, all 30 templates,
                       # custom-template library, reactivity mixer, fonts,
-                      # butterchurn fallback, global vars, ID3 tags, codecs,
+                      # butterchurn fallback, global vars, ID3 tags, codecs, camera,
                       # offline FFT timeline, Lottie/crop paths, expr, lyrics,
                       # undo, persistence, exporter, GIF guard (177 checks)
 npm run build && npm run test:boot   # mounts the real built app in jsdom
