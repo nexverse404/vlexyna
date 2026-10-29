@@ -23,10 +23,7 @@ mod tests {
         let c = conf();
         assert_eq!(c["productName"], "Vlexyna");
         assert_eq!(c["version"], "2.0.0");
-        assert!(
-            c["identifier"].as_str().unwrap().contains('.'),
-            "identifier must be reverse-DNS"
-        );
+        assert!(c["identifier"].as_str().unwrap().contains('.'), "identifier must be reverse-DNS");
         assert_eq!(c["build"]["frontendDist"], "../dist");
         assert_eq!(c["build"]["devUrl"], "http://localhost:1420");
         assert_eq!(c["build"]["beforeDevCommand"], "npm run dev");
@@ -52,21 +49,18 @@ mod tests {
             assert!(
                 std::fs::metadata(&p).unwrap().len() > 100,
                 "icon looks empty: {}",
-                p.display()
+                p.display(),
             );
         }
     }
 
     #[test]
     fn capabilities_reference_the_main_window() {
-        let cap: Value =
-            serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();
+        let cap = serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();
         let windows = cap["windows"].as_array().unwrap();
         assert!(windows.contains(&Value::String("main".into())));
-        assert!(
-            cap["permissions"].as_array().unwrap().len() >= 1,
-            "expected at least core:default"
-        );
+        let perms = cap["permissions"].as_array().unwrap();
+        assert!(!perms.is_empty(), "expected at least core:default");
     }
 
     #[test]

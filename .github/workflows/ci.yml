@@ -52,15 +52,35 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+      # run each cargo gate; on failure, mirror the output into workflow
+      # annotations (readable via the GitHub API without downloading logs)
       - name: cargo fmt
-        run: cargo fmt --check
+        run: |
+          if ! out=$(cargo fmt --check 2>&1); then
+            printf '%s\n' "$out" | head -50 | while IFS= read -r l; do
+              printf '::error title=cargo fmt::%s\n' "$l"
+            done
+            exit 1
+          fi
         working-directory: src-tauri
       - name: cargo clippy
-        run: cargo clippy --all-targets -- -D warnings
+        run: |
+          if ! out=$(cargo clippy --all-targets -- -D warnings 2>&1); then
+            printf '%s\n' "$out" | tail -60 | while IFS= read -r l; do
+              printf '::error title=cargo clippy::%s\n' "$l"
+            done
+            exit 1
+          fi
         working-directory: src-tauri
       - name: cargo check
         run: cargo check --all-targets
         working-directory: src-tauri
       - name: cargo test
-        run: cargo test
+        run: |
+          if ! out=$(cargo test 2>&1); then
+            printf '%s\n' "$out" | tail -60 | while IFS= read -r l; do
+              printf '::error title=cargo test::%s\n' "$l"
+            done
+            exit 1
+          fi
         working-directory: src-tauri
