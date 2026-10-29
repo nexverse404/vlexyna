@@ -18,11 +18,16 @@ mod tests {
             .expect("tauri.conf.json must be valid JSON")
     }
 
+    fn caps() -> Value {
+        serde_json::from_str(include_str!("../capabilities/default.json"))
+            .expect("capabilities/default.json must be valid JSON")
+    }
+
     #[test]
     fn config_has_required_fields() {
         let c = conf();
         assert_eq!(c["productName"], "Vlexyna");
-        assert_eq!(c["version"], "2.0.0");
+        assert_eq!(c["version"], "2.1.0");
         assert!(
             c["identifier"].as_str().unwrap().contains('.'),
             "identifier must be reverse-DNS"
@@ -35,7 +40,8 @@ mod tests {
 
     #[test]
     fn window_config_is_sane() {
-        let w = &conf()["app"]["windows"][0];
+        let c = conf();
+        let w = &c["app"]["windows"][0];
         assert_eq!(w["title"], "Vlexyna Studio");
         assert!(w["width"].as_u64().unwrap() >= w["minWidth"].as_u64().unwrap());
         assert!(w["height"].as_u64().unwrap() >= w["minHeight"].as_u64().unwrap());
@@ -44,7 +50,8 @@ mod tests {
 
     #[test]
     fn bundle_icons_exist() {
-        let icons = conf()["bundle"]["icon"].as_array().unwrap();
+        let c = conf();
+        let icons = c["bundle"]["icon"].as_array().unwrap();
         assert!(icons.len() >= 5, "expected png/ico/icns icon set");
         for icon in icons {
             let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(icon.as_str().unwrap());
@@ -59,7 +66,7 @@ mod tests {
 
     #[test]
     fn capabilities_reference_the_main_window() {
-        let cap = serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();
+        let cap = caps();
         let windows = cap["windows"].as_array().unwrap();
         assert!(windows.contains(&Value::String("main".into())));
         let perms = cap["permissions"].as_array().unwrap();
