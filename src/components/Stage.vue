@@ -17,7 +17,7 @@ function perfTick(now) {
     if (perfN >= 20) {
       const avg = perfAcc / perfN;
       const layers = S.vx?.project?.current?.layers?.length || 0;
-      perfLine.value = `${(1000 / avg).toFixed(0)} fps · ${avg.toFixed(1)} ms/frame · ${layers} layers · ${S.width}×${S.height} · zoom ${zoomLabel.value}`;
+      perfLine.value = `${(1000 / avg).toFixed(0)} fps · ${avg.toFixed(1)} ms/frame · ${layers} layers · ${S.width}×${S.height} · zoom ${S.zoom ? Math.round(S.zoom * 100) + '%' : 'fit'}`;
       perfAcc = 0; perfN = 0;
     }
   }
@@ -25,13 +25,11 @@ function perfTick(now) {
   requestAnimationFrame(perfTick);
 }
 
-/* stage zoom: 0 = fit-to-view, otherwise a scale factor on project pixels */
+/* stage zoom lives in the store (S.zoom) — the transport strip and Ctrl+scroll drive it */
 const ZOOMS = [0, .25, .5, 1, 2];
-const zoom = ref(0);
-const zoomLabel = computed(() => zoom.value ? Math.round(zoom.value * 100) + '%' : 'Fit');
 function zoomStep(dir) {
-  const i = ZOOMS.indexOf(zoom.value);
-  zoom.value = ZOOMS[U.clamp((i < 0 ? 0 : i) + dir, 0, ZOOMS.length - 1)];
+  const i = ZOOMS.indexOf(S.zoom);
+  S.zoom = ZOOMS[U.clamp((i < 0 ? 0 : i) + dir, 0, ZOOMS.length - 1)];
 }
 function onWheel(e) {
   if (!e.ctrlKey) return;
@@ -47,9 +45,9 @@ const selL = computed(() => {
 function fit() {
   if (!stage.value || !inner.value || !S.vx) return;
   let w, h;
-  if (zoom.value > 0) {
-    w = Math.round((S.width || 1920) * zoom.value);
-    h = Math.round((S.height || 1080) * zoom.value);
+  if (S.zoom > 0) {
+    w = Math.round((S.width || 1920) * S.zoom);
+    h = Math.round((S.height || 1080) * S.zoom);
   } else {
     const sw = Math.max(60, stage.value.clientWidth - 24);
     const sh = Math.max(40, stage.value.clientHeight - 24);
@@ -64,7 +62,7 @@ function fit() {
     inner.value.style.height = h + 'px';
   }
 }
-watch(zoom, () => fit());
+watch(() => S.zoom, (z) => { if (S.vx) S.vx.app.zoom = z > 0 ? z : 1; fit(); });
 
 let ro = null;
 onMounted(async () => {
@@ -217,11 +215,6 @@ function onDown(e) {
       </div>
     </div>
     <div class="perf mono" v-if="S.perf && !S.exporting">{{ perfLine }}</div>
-    <div class="zoombar" v-if="!S.exporting">
-      <button class="ib tiny" @click="zoomStep(-1)" title="Zoom out">−</button>
-      <button class="ib tiny zoom-cur" @click="zoom = 0" title="Fit to view">{{ zoomLabel }}</button>
-      <button class="ib tiny" @click="zoomStep(1)" title="Zoom in (Ctrl+scroll)">+</button>
-    </div>
     <div id="exportBadge" v-if="S.exporting">● RECORDING</div>
     <div class="stage-hint lab" v-if="S.booted && !S.audio.has && !S.exporting">no audio — demo beat or drop a file</div>
     <div class="pick-hint lab" v-if="!S.sel && S.booted && !S.exporting">click a layer to select it · drag to move</div>

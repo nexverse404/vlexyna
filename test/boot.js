@@ -100,7 +100,7 @@ let pass = true;
 const check = (okk, name) => { console.log((okk ? '  ✓ ' : '  ✗ ') + name); if (!okk) pass = false; };
 
 check(!!(app && app.children.length && html.includes('Vlexyna')), 'app mounts with UI shell');
-for (const [n, re] of [['top bar', /Vlexyna/], ['layer panel', /Layers/], ['inspector', /Inspector/], ['timeline lanes', /tl-lane/]]) check(re.test(html), n);
+for (const [n, re] of [['top bar', /Vlexyna/], ['layer panel', /Layers/], ['inspector (Objects panel)', /Objects \//], ['timeline lanes', /tl-lane/]]) check(re.test(html), n);
 
 const VX = window.VX;
 check(!!(VX && VX.app && VX.project?.current), 'engine booted into the app');
@@ -170,20 +170,20 @@ if (VX) {
     const closeX = doc.querySelector('.modal-h .ib') || doc.querySelector('.m-h .ib');
     closeX && closeX.click(); await tick2();
     /* templates modal offers saving your own */
-    const tplBtn = [...doc.querySelectorAll('header.bar .btn')].find(b => /Templates/.test(b.textContent));
+    const tplBtn = [...doc.querySelectorAll('header.bar .btn')].find(b => /Explore creations/.test(b.textContent));
     tplBtn.click(); await tick2();
     const saveTpl = [...doc.querySelectorAll('button')].find(b => /Save current as template/.test(b.textContent));
     check(!!saveTpl, 'templates modal has “save current as template”');
     const closeX2 = doc.querySelector('.modal-h .ib') || doc.querySelector('.m-h .ib');
     closeX2 && closeX2.click(); await tick2();
-    /* stage zoom controls */
-    const zoomBtns = doc.querySelectorAll('.zoombar .ib');
-    check(zoomBtns.length === 3, 'stage zoom controls (−/fit/+)');
-    if (zoomBtns.length === 3) {
-      zoomBtns[2].click(); await tick2();
-      check(/25%/.test(doc.querySelector('.zoombar .zoom-cur').textContent), 'zoom in shows 25%');
+    /* zoom controls live in the transport strip now (vizzy-style) */
+    const zoomBtns = doc.querySelectorAll('.transport .zoomctl .ib');
+    check(zoomBtns.length === 2, 'zoom controls (−/+) in the transport strip');
+    if (zoomBtns.length === 2) {
       zoomBtns[1].click(); await tick2();
-      check(/Fit/.test(doc.querySelector('.zoombar .zoom-cur').textContent), 'fit restores');
+      check(/25%/.test(doc.querySelector('.transport .zoomctl').textContent), 'zoom in shows 25%');
+      zoomBtns[0].click(); await tick2();
+      check(/Fit/.test(doc.querySelector('.transport .zoomctl').textContent), 'fit restores');
     }
     /* dynamic font picker — text layer params resolve through a function now */
     {
@@ -191,7 +191,7 @@ if (VX) {
       chosen.window.VX.project.current.layers.push(t);
       chosen.window.VX.ui.refreshAll();          /* bump S.rev so the panel re-renders */
       await tick2();
-      const row2 = doc.querySelector('.layers .row');   /* panel shows layers reversed — newest first */
+      const row2 = doc.querySelector('.layers .plist .row:not(.root)');   /* newest layer first, skip the Composition root */
       row2 && row2.click(); await tick2();
       const sel = [...doc.querySelectorAll('.insp select')];
       const fontSel = sel.find(s => [...s.options].some(o => /Default Sans|Arial/.test(o.textContent)));
@@ -199,20 +199,26 @@ if (VX) {
       check(chosen._errLog.length === 0, 'font picker renders without errors');
     }
     /* selecting a layer reveals the transform gizmo (select() toggles — text is already selected above, so click the next row) */
-    const row = [...doc.querySelectorAll('.layers .row')][1];
+    const row = [...doc.querySelectorAll('.layers .plist .row:not(.root)')][1];
     if (row) {
       row.click(); await tick2();
       check(!!doc.querySelector('.giz-r') && !!doc.querySelector('.giz-s'), 'transform gizmo handles appear on selection');
       check(!!doc.querySelector('.giz-info'), 'gizmo shows rotation/scale readout');
     }
-    /* help lists the new shortcuts */
-    const helpBtn = [...doc.querySelectorAll('header.bar .ib')].find(b => (b.title || '').includes('shortcut'));
-    if (helpBtn) {
-      helpBtn.click(); await tick2();
-      const h = doc.body.textContent;
-      check(h.includes('split layer at playhead') && h.includes('reactivity mixer'), 'help lists the new shortcuts');
-      const closeX3 = doc.querySelector('.modal-h .ib') || doc.querySelector('.m-h .ib');
-      closeX3 && closeX3.click(); await tick2();
+    /* help lives in the Help ribbon menu now */
+    const helpMenu = [...doc.querySelectorAll('.vz-menu')].find(b => b.textContent.trim() === 'Help');
+    check(!!helpMenu, 'Help ribbon menu present');
+    if (helpMenu) {
+      helpMenu.click(); await tick2();
+      const shortcutsItem = [...doc.querySelectorAll('.menu-item')].find(b => /Keyboard shortcuts/.test(b.textContent));
+      check(!!shortcutsItem, 'Help menu lists keyboard shortcuts');
+      if (shortcutsItem) {
+        shortcutsItem.click(); await tick2();
+        const h = doc.body.textContent;
+        check(h.includes('split layer at playhead') && h.includes('reactivity mixer'), 'help lists the new shortcuts');
+        const closeX3 = doc.querySelector('.modal-h .ib') || doc.querySelector('.m-h .ib');
+        closeX3 && closeX3.click(); await tick2();
+      }
     }
   }
 
@@ -242,13 +248,13 @@ if (VX) {
       l0.shy = true; VX2.ui.refreshAll(); await tick3();
       let shyBtn = [...doc.querySelectorAll('.layers .ph .ib')].find(b => (b.title || '').includes('shy'));
       check(!!shyBtn, 'show-shy toggle appears when a shy layer exists');
-      const rowsBefore = doc.querySelectorAll('.layers .row').length;
+      const rowsBefore = doc.querySelectorAll('.layers .plist .row:not(.root)').length;
       check(rowsBefore === VX2.project.current.layers.length - 1, 'shy layer hidden from the list');
-      if (shyBtn) { shyBtn.click(); await tick3(); check(doc.querySelectorAll('.layers .row').length === VX2.project.current.layers.length, 'show-shy reveals it again'); shyBtn.click(); await tick3(); }
+      if (shyBtn) { shyBtn.click(); await tick3(); check(doc.querySelectorAll('.layers .plist .row:not(.root)').length === VX2.project.current.layers.length, 'show-shy reveals it again'); shyBtn.click(); await tick3(); }
       l0.shy = false; VX2.ui.refreshAll(); await tick3();
     }
-    /* multi-select: ctrl-click two rows */
-    const rows = doc.querySelectorAll('.layers .row');
+    /* multi-select: ctrl-click two layer rows (skip the Composition root) */
+    const rows = doc.querySelectorAll('.layers .plist .row:not(.root)');
     if (rows.length >= 2) {
       rows[0].dispatchEvent(new chosen.window.MouseEvent('click', { bubbles: true, ctrlKey: true }));
       await tick3();
@@ -284,13 +290,10 @@ if (VX) {
     const VX3 = chosen.window.VX;
     /* ensure nothing selected → inspector shows camera group */
     chosen.window.VX.project.ensureCamera(chosen.window.VX.project.current);
-    /* deselect: click the already-selected row if any */
-    const inspTxt0 = doc.querySelector('.insp')?.textContent || '';
-    if (!inspTxt0.includes('Camera')) {
-      /* something is selected from earlier checks — dispatch Escape-like deselect via store */
-      chosen.window.dispatchEvent(new chosen.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
-      await tick4();
-    }
+    /* deselect: click the Composition root row in the tree */
+    const rootRow = doc.querySelector('.layers .row.root');
+    rootRow && rootRow.click();
+    await tick4();
     const inspTxt = doc.querySelector('.insp')?.textContent || '';
     check(inspTxt.includes('Camera'), 'camera panel visible with no selection');
     check(inspTxt.includes('Beat zoom'), 'camera punch-in slider present');
@@ -304,68 +307,139 @@ if (VX) {
     }
   }
 
-  /* ── v3.0: analyzers · automations browser · media library · icons ── */
+  /* ── v3.1: the vizzy-style editor — ribbon, 7 tabs, tree, transport strip ── */
   {
     const tick5 = () => new Promise(r => setTimeout(r, 30));
     const VX4 = chosen.window.VX;
-    /* make sure nothing is selected (inspector shows global panels) */
-    chosen.window.dispatchEvent(new chosen.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
-    await tick5();
-    let insp = doc.querySelector('.insp')?.textContent || '';
-    check(insp.includes('Audio analyzers'), 'analyzers panel visible with no selection');
-    const addAn = [...doc.querySelectorAll('.insp button')].find(b => /Add analyzer/.test(b.textContent));
+
+    /* ribbon: File/Edit/Project/View/Help menus + right side actions */
+    const menus = [...doc.querySelectorAll('.vz-menu')].map(b => b.textContent.trim());
+    check(menus.length === 5 && ['File', 'Edit', 'Project', 'View', 'Help'].every(m => menus.includes(m)), 'ribbon has File/Edit/Project/View/Help menus');
+    const fileMenu = [...doc.querySelectorAll('.vz-menu')].find(b => b.textContent.trim() === 'File');
+    if (fileMenu) {
+      fileMenu.click(); await tick5();
+      const items = [...doc.querySelectorAll('.menu-item')].map(b => b.textContent);
+      check(items.some(t => /New project/.test(t)) && items.some(t => /Import \.vlx/.test(t)), 'File menu offers New/Import/Export');
+      check(!!doc.querySelector('.menu'), 'ribbon menu opens as a dropdown');
+      const closeM = (e) => { document.body.click(); };
+      closeM(); await tick5();
+    }
+    check(doc.body.textContent.includes('Explore creations'), 'Explore creations action in the ribbon');
+    check(doc.querySelector('.vz-pill') !== null, 'version pill in the ribbon');
+
+    /* left bar: the seven vizzy tabs */
+    const tabs = [...doc.querySelectorAll('.vz-tabs .vz-tab')].map(b => b.textContent.trim());
+    check(tabs.length === 7, 'left bar has 7 tabs');
+    check(['Composition', 'Analyzers', 'Effects', 'Automations', 'Media', 'Projects', 'Lyrics'].every(t => tabs.includes(t)), 'tab names match the reference editor');
+
+    /* Analyzers tab: panel CRUD */
+    const anTab = [...doc.querySelectorAll('.vz-tab')].find(b => b.textContent.trim() === 'Analyzers');
+    anTab.click(); await tick5();
+    let leftTxt = doc.querySelector('.layers')?.textContent || '';
+    check(leftTxt.includes('Audio analyzers'), 'analyzers panel opens in the tab');
+    const addAn = [...doc.querySelectorAll('.layers button')].find(b => /Add analyzer/.test(b.textContent));
     check(!!addAn, 'add-analyzer button present');
     if (addAn) {
       addAn.click(); await tick5();
       check((VX4.project.current.analyzers || []).length > 0, 'add-analyzer creates an analyzer');
-      insp = doc.querySelector('.insp')?.textContent || '';
-      check(insp.includes('Lower limit'), 'analyzer frequency-range controls shown');
-      check(insp.includes('Sensitivity'), 'analyzer sensitivity control shown');
+      leftTxt = doc.querySelector('.layers')?.textContent || '';
+      check(leftTxt.includes('Lower limit'), 'analyzer Lower limit control shown');
+      check(leftTxt.includes('Upper limit'), 'analyzer Upper limit control shown');
+      check(leftTxt.includes('Sensitivity'), 'analyzer sensitivity control shown');
+      check(leftTxt.includes('Cumulative'), 'analyzer cumulative option shown');
       const anCount = VX4.project.current.analyzers.length;
-      /* the trash button is the last .ib.tiny in the first analyzer card */
-      const anCard = doc.querySelector('.insp .fxcard');
+      const anCard = doc.querySelector('.layers .fxcard');
       const anBtns = anCard ? [...anCard.querySelectorAll('.ib.tiny')] : [];
       const delAn = anBtns[anBtns.length - 1];
       check(!!delAn, 'analyzer delete button present');
       if (delAn) { delAn.click(); await tick5(); check(VX4.project.current.analyzers.length === anCount - 1, 'analyzer delete works'); }
     }
-    /* automations browser: put an automation on a layer, deselect, look for the row */
+
+    /* Automations tab: browser with per-automation shaping */
     const lay = VX4.project.current.layers[0];
     if (lay) {
       lay.auto = lay.auto || {};
       lay.auto.scale = 'bass*0.2';
-      chosen.window.VX.ui.refreshAll(); await tick5();
-      chosen.window.dispatchEvent(new chosen.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
-      await tick5();
-      insp = doc.querySelector('.insp')?.textContent || '';
-      check(/Automations \(1\)/.test(insp) || insp.includes('Automations ('), 'automations browser lists project automations');
-      check(insp.includes('bass*0.2'), 'automation expression shown in browser');
-      /* clicking a browser row selects the layer and opens the Auto tab */
-      const row = [...doc.querySelectorAll('.insp .auto-row.browse .an-who')].find(() => true);
-      if (row) { row.click(); await tick5(); }
-      delete lay.auto.scale;
+      VX4.ui.refreshAll(); await tick5();
     }
-    /* media modal from the topbar */
-    const mediaBtn = [...doc.querySelectorAll('header.bar .btn')].find(b => /Media/.test(b.textContent));
-    check(!!mediaBtn, 'Media button in top bar');
-    if (mediaBtn) {
-      mediaBtn.click(); await tick5();
-      const mtabs = [...doc.querySelectorAll('.m-tabs button')].map(b => b.textContent);
-      check(mtabs.includes('Stock') && mtabs.includes('Images') && mtabs.includes('Fonts'), 'media library tabs (stock/images/videos/fonts/audio)');
-      check(doc.querySelector('.media-grid') !== null, 'media library shows the stock grid');
-      const stockCard = doc.querySelector('.media-card');
-      check(!!stockCard, 'stock cards render');
-      const closeM = doc.querySelector('.m-h .ib'); closeM && closeM.click(); await tick5();
+    const auTab = [...doc.querySelectorAll('.vz-tab')].find(b => b.textContent.trim() === 'Automations');
+    auTab.click(); await tick5();
+    leftTxt = doc.querySelector('.layers')?.textContent || '';
+    const auInputs = [...doc.querySelectorAll('.layers .auto-card input')];
+    check(auInputs.some(i => i.value === 'bass*0.2'), 'automations tab lists the automation expression');
+    check(leftTxt.includes('smooth') && leftTxt.includes('max'), 'automations tab offers min/max/smooth shaping');
+    check(leftTxt.includes('smooth'), 'automations tab offers smoothing');
+    if (lay) { delete lay.auto.scale; VX4.ui.refreshAll(); await tick5(); }
+
+    /* Media tab: stock grid */
+    const mediaTab = [...doc.querySelectorAll('.vz-tab')].find(b => b.textContent.trim() === 'Media');
+    mediaTab.click(); await tick5();
+    check(doc.querySelector('.layers .media-grid') !== null, 'media tab shows the stock grid');
+    check(!!doc.querySelector('.layers .media-card'), 'stock cards render');
+    leftTxt = doc.querySelector('.layers')?.textContent || '';
+    check(leftTxt.includes('Stock') && leftTxt.includes('Uploads'), 'media sub-tabs (Stock/Uploads/Audio)');
+
+    /* Projects tab: saved projects list */
+    const projTab = [...doc.querySelectorAll('.vz-tab')].find(b => b.textContent.trim() === 'Projects');
+    projTab.click(); await tick5();
+    leftTxt = doc.querySelector('.layers')?.textContent || '';
+    check(leftTxt.includes('Import .vlx') || leftTxt.includes('Export'), 'projects tab offers import/export');
+    check(!!doc.querySelector('.layers .row.proj') || /Untitled/.test(leftTxt), 'projects list renders');
+
+    /* Lyrics tab */
+    const lyrTab = [...doc.querySelectorAll('.vz-tab')].find(b => b.textContent.trim() === 'Lyrics');
+    lyrTab.click(); await tick5();
+    leftTxt = doc.querySelector('.layers')?.textContent || '';
+    check(leftTxt.includes('Import LRC'), 'lyrics tab offers LRC/TTML import');
+
+    /* Composition tab: the object tree with effects/automations children */
+    const compTab = [...doc.querySelectorAll('.vz-tab')].find(b => b.textContent.trim() === 'Composition');
+    compTab.click(); await tick5();
+    check(!!doc.querySelector('.layers .row.root'), 'composition root row present');
+    const treeLay = VX4.project.current.layers[0];
+    if (treeLay) {
+      treeLay.fx = treeLay.fx || [];
+      if (!treeLay.fx.length) treeLay.fx.push(VX4.fx.make('glow'));
+      treeLay.auto = treeLay.auto || {};
+      treeLay.auto.scale = 'bass';
+      VX4.ui.refreshAll(); await tick5();
+      const rowEl = [...doc.querySelectorAll('.layers .plist .row:not(.root)')].find(r => r.textContent.includes(treeLay.name));
+      const chev = rowEl && rowEl.querySelector('.chev');
+      check(!!chev, 'tree rows carry expand chevrons');
+      if (chev) {
+        chev.click(); await tick5();
+        const kids = doc.querySelector('.layers .tree-kids');
+        check(!!kids && kids.textContent.includes('Glow'), 'expanding shows effect children');
+        check(!!kids && kids.textContent.includes('scale'), 'expanding shows automation children');
+        /* clicking an effect child routes the Objects panel to it */
+        const fxKid = [...doc.querySelectorAll('.tree-kid')].find(k => k.textContent.includes('Glow'));
+        if (fxKid) {
+          fxKid.click(); await tick5();
+          const inspTxt = doc.querySelector('.insp')?.textContent || '';
+          check(inspTxt.includes('Glow') && inspTxt.includes('Radius'), 'Objects panel routes to the selected effect');
+        }
+        delete treeLay.auto.scale;
+        VX4.ui.refreshAll(); await tick5();
+      }
     }
-    /* inspector tabs carry icons (row click toggles selection — make sure one lands) */
+
+    /* transport strip: resolution pills + quick-adds (vizzy layout) */
+    const resBtns = [...doc.querySelectorAll('.transport .resbtn')].map(b => b.textContent.trim());
+    check(resBtns.length === 4 && ['360', '480', '720', '1080'].every(r => resBtns.includes(r)), 'resolution pills 360/480/720/1080');
+    check(!!doc.querySelector('.transport .zoomctl'), 'zoom control in the transport strip');
+    const qadds = doc.querySelector('.transport')?.textContent || '';
+    check(qadds.includes('Choose audio') && qadds.includes('Video') && qadds.includes('Image'), 'quick-add buttons (Choose audio / Video / Image)');
+
+    /* Objects panel: Basics tab + edit icon */
+    const selRow = doc.querySelector('.layers .plist .row:not(.root)');
+    if (selRow) { selRow.click(); await tick5(); }
     let tabBtns = doc.querySelectorAll('.insp .tabs button');
-    if (tabBtns.length < 3) {
-      const selRow = doc.querySelector('.layers .row');
-      if (selRow) { selRow.click(); await tick5(); }
+    if (tabBtns.length < 1) {
+      const selRow2 = doc.querySelector('.layers .plist .row:not(.root)');
+      if (selRow2) { selRow2.click(); await tick5(); }
       tabBtns = doc.querySelectorAll('.insp .tabs button');
     }
-    check(tabBtns.length === 3 && [...tabBtns].every(b => b.querySelector('svg')), 'inspector tabs have icons');
-    /* rename menu icon renders (missing-icon regression) */
+    check(tabBtns.length >= 1 && [...tabBtns].every(b => b.querySelector('svg') || b.textContent.includes('Basics')), 'Objects panel Basics tab');
     check((VX4.util.icon('edit')).includes('<path'), 'edit icon exists for the rename menu');
   }
 

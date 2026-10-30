@@ -14,6 +14,9 @@ export const S = reactive({
   audio: { name: '', has: false, micOn: false, muted: false, vol: .9 },
   bands: { bass: 0, mid: 0, treble: 0, level: 0, beat: 0 },
   ui: { left: false, right: false, tl: true, showShy: false },   /* drawer/collapse + shy-layer state */
+  tab: 'composition',          /* left bar tab (vizzy-style) */
+  treeSel: null,               /* { layer, kind: 'item'|'fx'|'auto', index?, key? } — composition tree routing */
+  zoom: 0,                     /* stage zoom: 0 = fit, else a scale factor */
   multi: [],                                            /* multi-selected layer ids */
   perf: false,                                          /* F3 performance overlay */
   exporting: false, expProg: 0, expLabel: '',

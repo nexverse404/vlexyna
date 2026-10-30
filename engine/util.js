@@ -3,6 +3,7 @@
 const VX = window.VX || (window.VX = {});
 /* ESM + classic dual-mode: bindings exported for bundlers, VX kept on window */
 const U = VX.util = {};
+VX.version = '3.1.0';   /* shown in the ribbon pill */
 
 U.$ = (sel, root) => (root || document).querySelector(sel);
 U.$$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));

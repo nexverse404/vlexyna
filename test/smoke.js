@@ -715,6 +715,19 @@ const noWarns = () => { if (warns.length) { const w = warns.splice(0); throw new
     if (!p.camera.on) throw new Error('no camera');
   });
 
+  ok('analyzer cumulative output accumulates', () => {
+    const eng = VX.audio.engine;
+    const oldRange = eng.range;
+    eng.range = () => 0.1;
+    eng.resetAnalyzers();
+    const a1 = eng.computeAnalyzers([{ id: 'c1', name: 'C', lo: 20, hi: 100, sens: 1, cumulative: true, min: 0, max: 2 }], 1 / 60).C;
+    const a2 = eng.computeAnalyzers([{ id: 'c1', name: 'C', lo: 20, hi: 100, sens: 1, cumulative: true, min: 0, max: 2 }], 1 / 60).C;
+    const a3 = eng.computeAnalyzers([{ id: 'c1', name: 'C', lo: 20, hi: 100, sens: 1, cumulative: true, min: 0, max: 2 }], 1 / 60).C;
+    eng.range = oldRange;
+    eng.resetAnalyzers();
+    if (!(Math.abs(a1 - .1) < 1e-9 && Math.abs(a2 - .2) < 1e-9 && Math.abs(a3 - .3) < 1e-9)) throw new Error('no accumulation: ' + a1 + ' ' + a2 + ' ' + a3);
+  });
+
   console.log('\n── final: no window errors during whole run ──');
   ok('window error log empty', () => { if (errLog.length) throw new Error(errLog.slice(0, 5).join(' ; ')); });
   console.warn = origWarn;

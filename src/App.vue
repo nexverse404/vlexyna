@@ -4,7 +4,7 @@ import { S, closeMenu, closeModal, toast, openModal } from './store.js';
 import { handleDrop, copyLayer, cutLayer, pasteLayer, splitLayerAt } from './appctl.js';
 import { U } from '../engine/util.js';
 import TopBar from './components/TopBar.vue';
-import LayerPanel from './components/LayerPanel.vue';
+import LeftPanel from './components/LeftPanel.vue';
 import Stage from './components/Stage.vue';
 import Transport from './components/Transport.vue';
 import Inspector from './components/Inspector.vue';
@@ -153,7 +153,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="app">
     <TopBar />
-    <LayerPanel />
+    <LeftPanel />
     <div class="center-col">
       <Stage />
       <Transport />

@@ -243,6 +243,12 @@ import { VX, U } from './util.js';
           v = Math.abs(v - prevR);
           this._anState.set(k, this.range(lo, hi) * (+an.sens || 1));
         }
+        if (an.cumulative) {              /* running sum — beat counters, energy meters */
+          const ck = 'c' + an.id;
+          const pc = this._anState.has(ck) ? this._anState.get(ck) : 0;
+          v = pc + v;
+          this._anState.set(ck, v);
+        }
         const sm = U.clamp(+an.smooth || 0, 0, .95);
         const k = 'v' + an.id;
         const prev = this._anState.has(k) ? this._anState.get(k) : 0;
