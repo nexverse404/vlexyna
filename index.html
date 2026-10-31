@@ -25,6 +25,8 @@
           <span class="brand-tag">music video studio</span>
         </div>
         <div class="topbar-actions">
+          <button id="btn-save" class="btn ghost" type="button" title="Download this project’s settings as a .json file">Save</button>
+          <button id="btn-open" class="btn ghost" type="button" title="Load a previously saved project">Open</button>
           <button id="btn-new" class="btn ghost" type="button">New</button>
           <button id="btn-export-top" class="btn primary" type="button">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
@@ -59,6 +61,9 @@
               <svg class="ico-play" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
               <svg class="ico-pause" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
             </button>
+            <button id="btn-loop" class="loop-btn" type="button" title="Loop playback (L)" aria-label="Loop playback">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>
+            </button>
             <div class="time" id="time">0:00.0&thinsp;/&thinsp;0:00.0</div>
             <canvas id="timeline"></canvas>
           </div>
@@ -74,6 +79,7 @@
     </div>
 
     <input type="file" id="file-track" class="hidden-file" accept="audio/*,.mp3,.wav,.flac,.m4a,.ogg" />
+    <input type="file" id="file-project" class="hidden-file" accept=".json,application/json" />
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

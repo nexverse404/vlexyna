@@ -82,6 +82,7 @@ const app: PanelApp = {
   rebuild: () => rebuildPanel(),
   setBadgeCorner,
   startExport,
+  savePoster,
   cancelExport: () => {
     exportCancelled = true;
   },
@@ -294,6 +295,11 @@ function setBadgeCorner(c: 'bl' | 'br' | 'tl' | 'tr'): void {
 }
 
 function loop(): void {
+  if (exporting) {
+    // the exporter owns the scene (and its feedback buffer) right now
+    requestAnimationFrame(loop);
+    return;
+  }
   if (playing && features) {
     time = audioEl.currentTime;
     needsRender = true;
@@ -395,6 +401,9 @@ async function loadAudio(file: File): Promise<void> {
     });
     features = F;
     emptyEl.hidden = true;
+    // first track: fill the badge title from the file name unless it was customized
+    const base = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim().toUpperCase();
+    if (settings.badge.title === 'FANTASIZE' && base) settings.badge.title = base.slice(0, 48);
     rebuildScene();
     rebuildPanel();
     timeline.draw();
@@ -470,6 +479,9 @@ async function loadDemo(): Promise<void> {
     const bgBlob = await bgRes.blob();
     await loadBg(new File([bgBlob], 'demo artwork.jpg', { type: 'image/jpeg' }));
     seek(0);
+    // the click on "Try the demo" is the user gesture — start playing right away
+    void audioEl.play().catch(() => undefined);
+    media.bgVideo?.play().catch(() => undefined);
   } catch (err) {
     console.error(err);
     toast('Could not load the demo assets.', 'error');
@@ -477,15 +489,85 @@ async function loadDemo(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// settings changes
+// settings changes + undo/redo
 // ---------------------------------------------------------------------------
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+const undoStack: string[] = [];
+const redoStack: string[] = [];
+let lastCommitted: string = JSON.stringify(settings);
+let commitTimer: ReturnType<typeof setTimeout> | null = null;
+
+function deepAssign(target: Record<string, unknown>, src: Record<string, unknown>): void {
+  for (const k of Object.keys(src)) {
+    const v = src[k];
+    if (
+      v !== null &&
+      typeof v === 'object' &&
+      !Array.isArray(v) &&
+      target[k] !== null &&
+      typeof target[k] === 'object' &&
+      !Array.isArray(target[k])
+    ) {
+      deepAssign(target[k] as Record<string, unknown>, v as Record<string, unknown>);
+    } else {
+      target[k] = v;
+    }
+  }
+}
+
+/** A tweak becomes one undo step once the user stops touching things. */
+function scheduleCommit(): void {
+  if (commitTimer) clearTimeout(commitTimer);
+  commitTimer = setTimeout(() => {
+    commitTimer = null;
+    const now = JSON.stringify(settings);
+    if (now !== lastCommitted) {
+      undoStack.push(lastCommitted);
+      if (undoStack.length > 60) undoStack.shift();
+      redoStack.length = 0;
+      lastCommitted = now;
+    }
+  }, 650);
+}
+
+function applySettingsSnapshot(snap: string): void {
+  deepAssign(settings as unknown as Record<string, unknown>, JSON.parse(snap) as Record<string, unknown>);
+  rebuildScene();
+  rebuildPanel();
+  saveSettings(settings);
+  needsRender = true;
+}
+
+function undo(): void {
+  const snap = undoStack.pop();
+  if (snap === undefined) {
+    toast('Nothing to undo', 'info', 1200);
+    return;
+  }
+  redoStack.push(lastCommitted);
+  lastCommitted = snap;
+  applySettingsSnapshot(snap);
+  toast('Undid', 'info', 1100);
+}
+
+function redo(): void {
+  const snap = redoStack.pop();
+  if (snap === undefined) {
+    toast('Nothing to redo', 'info', 1200);
+    return;
+  }
+  undoStack.push(lastCommitted);
+  lastCommitted = snap;
+  applySettingsSnapshot(snap);
+  toast('Redid', 'info', 1100);
+}
 
 function changed(): void {
   rebuildScene();
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => saveSettings(settings), 350);
+  scheduleCommit();
 }
 
 // ---------------------------------------------------------------------------
@@ -500,6 +582,35 @@ function outputName(ext: 'mp4' | 'webm'): string {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '') || 'vlexyna';
   return `${base}-visualizer.${ext}`;
+}
+
+/** Render the current frame at export resolution and download it as a PNG. */
+function savePoster(): void {
+  if (!scene || !features) return;
+  const W = settings.exportCfg.width;
+  const H = settings.exportCfg.height;
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const c2 = c.getContext('2d', { alpha: false });
+  if (!c2) return;
+  renderFrame(scene, c2, W, H, Math.min(time, features.duration));
+  const base =
+    settings.badge.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'vlexyna';
+  c.toBlob((b) => {
+    if (!b) {
+      toast('Could not encode the poster.', 'error');
+      return;
+    }
+    const url = URL.createObjectURL(b);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${base}-poster.png`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  }, 'image/png');
 }
 
 async function startExport(): Promise<void> {
@@ -591,6 +702,53 @@ function rebuildPanel(): void {
 // ---------------------------------------------------------------------------
 
 playBtn.addEventListener('click', () => void togglePlay());
+view.addEventListener('dblclick', () => void togglePlay());
+
+const loopBtn = $<HTMLButtonElement>('#btn-loop');
+loopBtn.addEventListener('click', () => {
+  audioEl.loop = !audioEl.loop;
+  loopBtn.classList.toggle('active', audioEl.loop);
+});
+
+// project save / open
+$<HTMLButtonElement>('#btn-save').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'vlexyna-project.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  toast('Project saved. Media files stay on your machine — keep them alongside the .json.', 'success', 5200);
+});
+
+const fileProject = $<HTMLInputElement>('#file-project');
+$<HTMLButtonElement>('#btn-open').addEventListener('click', () => fileProject.click());
+fileProject.addEventListener('change', () => {
+  const f = fileProject.files?.[0];
+  if (f) void openProject(f);
+  fileProject.value = '';
+});
+
+async function openProject(file: File): Promise<void> {
+  try {
+    const parsed: unknown = JSON.parse(await file.text());
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('not an object');
+    deepAssign(settings as unknown as Record<string, unknown>, parsed as Record<string, unknown>);
+    undoStack.push(lastCommitted);
+    lastCommitted = JSON.stringify(settings);
+    rebuildScene();
+    rebuildPanel();
+    saveSettings(settings);
+    needsRender = true;
+    toast('Project loaded.', 'success');
+  } catch {
+    toast('That does not look like a Vlexyna project file.', 'error');
+  }
+}
+
 $<HTMLButtonElement>('#btn-demo').addEventListener('click', () => void loadDemo());
 $<HTMLButtonElement>('#btn-pick-track').addEventListener('click', () => fileTrack.click());
 fileTrack.addEventListener('change', () => {
@@ -626,6 +784,9 @@ $<HTMLButtonElement>('#btn-new').addEventListener('click', () => {
   media.logo = undefined;
   Object.assign(settings, defaultSettings());
   clearSettings();
+  undoStack.length = 0;
+  redoStack.length = 0;
+  lastCommitted = JSON.stringify(settings);
   time = 0;
   emptyEl.hidden = false;
   activePanel = 'track';
@@ -673,9 +834,28 @@ window.addEventListener('drop', (e) => {
 window.addEventListener('keydown', (e) => {
   const target = e.target instanceof HTMLElement ? e.target : null;
   if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
+  const mod = e.ctrlKey || e.metaKey;
   if (e.code === 'Space') {
     e.preventDefault();
     void togglePlay();
+  } else if (mod && !e.shiftKey && e.key.toLowerCase() === 'z') {
+    e.preventDefault();
+    undo();
+  } else if ((mod && e.shiftKey && e.key.toLowerCase() === 'z') || (mod && e.key.toLowerCase() === 'y')) {
+    e.preventDefault();
+    redo();
+  } else if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    seek(time - (e.shiftKey ? 5 : 1 / 30));
+  } else if (e.key === 'ArrowRight') {
+    e.preventDefault();
+    seek(time + (e.shiftKey ? 5 : 1 / 30));
+  } else if (e.key === 'Home') {
+    seek(0);
+  } else if (e.key === 'End') {
+    if (features) seek(features.duration);
+  } else if (e.key.toLowerCase() === 'l') {
+    loopBtn.click();
   }
 });
 

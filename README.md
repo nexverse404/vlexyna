@@ -29,6 +29,17 @@ No track handy? Hit **Try the demo** — a synthesized 126 BPM track in A♯ min
 
 Everything downstream is a pure function of `(t, features)` — the export renders exactly what the preview showed.
 
+## The editor
+
+- **Style presets** — Fantasize, Deep Aqua, Sunset Drive, Neon Club, Midnight Mono — plus a *Surprise me* dice roll
+- **Direct manipulation** — grab the badge, spectrum or lens flare right on the preview and drag it
+- **Undo/redo** — `Ctrl/Cmd+Z`, `Ctrl/Cmd+Shift+Z` (one step per tweak, drags collapse into one)
+- **Hit echo** — feedback trails that pump with the hits
+- **Project save/open** — settings as a `.json` file (media stays local)
+- **Poster export** — any frame as a full-resolution PNG
+- **Shortcuts** — `Space` play/pause · `←/→` frame step (`Shift` = 5 s) · `Home/End` · `L` loop · double-click the preview to play
+- Badge auto-hide, spectrum peak caps, flare angle/ghosts, particle wind/twinkle, rotation shake, zoom release — all live
+
 ## Project layout
 
 ```

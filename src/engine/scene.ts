@@ -1,14 +1,19 @@
 /**
  * Scene orchestration: one call renders one frame at time t.
  * Preview and export share this exact path.
+ *
+ * Also owns the hit-echo feedback buffer: after the world is drawn, the
+ * previous frames (decayed, blended) are splatted back slightly scaled up —
+ * a radial motion-blur that pumps with the hits. The buffer is cleared on
+ * seeks/scrubs so ghosts never smear across edits.
  */
 
 import type { AudioFeatures } from './analysis';
-import { envelope } from './analysis';
+import { envelope, sampleAt } from './analysis';
 import type { MediaAssets } from './media';
 import type { Palette } from './palette';
 import type { ProjectSettings } from '../state';
-import type { LayoutInfo } from './layers';
+import { clamp, type LayoutInfo } from './layers';
 import {
   applyCamera,
   drawBackground,
@@ -21,6 +26,13 @@ import {
   drawVignette,
 } from './layers';
 
+interface EchoBuffer {
+  canvas: HTMLCanvasElement | null;
+  w: number;
+  h: number;
+  lastT: number;
+}
+
 export interface Scene {
   F: AudioFeatures;
   S: ProjectSettings;
@@ -31,6 +43,7 @@ export interface Scene {
   zoomEnv: Float32Array;
   /** Boxes filled by the painters each frame — used for drag hit-testing. */
   layout: LayoutInfo;
+  echo: EchoBuffer;
 }
 
 export function createScene(F: AudioFeatures, S: ProjectSettings, media: MediaAssets, palette: Palette): Scene {
@@ -47,6 +60,7 @@ export function createScene(F: AudioFeatures, S: ProjectSettings, media: MediaAs
     specBuf: new Float32Array(64),
     zoomEnv,
     layout: { badge: null, spectrum: null, flare: null },
+    echo: { canvas: null, w: 0, h: 0, lastT: -1 },
   };
 }
 
@@ -79,6 +93,9 @@ export function renderFrame(
   drawSpectrum(input);
   ctx.restore();
 
+  // hit echo — feedback trails (screen space, before the lens)
+  drawHitEcho(scene, ctx, W, H, t);
+
   // lens (screen space)
   drawVignette(input);
   drawGrain(input);
@@ -86,4 +103,60 @@ export function renderFrame(
   // foreground furniture
   drawReveal(input);
   drawBadge(input);
+}
+
+function drawHitEcho(scene: Scene, ctx: CanvasRenderingContext2D, W: number, H: number, t: number): void {
+  const E = scene.echo;
+  const dt = t - E.lastT;
+  E.lastT = t;
+  const sequential = dt > 0 && dt < 0.1;
+
+  if (!sequential) {
+    // scrub, seek or paused — wipe the ghosts
+    if (E.canvas && E.w === W && E.h === H) {
+      E.canvas.getContext('2d')?.clearRect(0, 0, W, H);
+    }
+    return;
+  }
+
+  if (scene.S.motion.echo <= 0.02) return;
+
+  if (!E.canvas || E.w !== W || E.h !== H) {
+    E.canvas = document.createElement('canvas');
+    E.canvas.width = W;
+    E.canvas.height = H;
+    E.w = W;
+    E.h = H;
+  }
+  const ectx = E.canvas.getContext('2d');
+  if (!ectx) return;
+
+  const fluxNow = sampleAt(scene.F.flux, scene.F.fps, t);
+  const bass = sampleAt(scene.zoomEnv, scene.F.fps, t);
+  const strength = clamp(scene.S.motion.echo * (fluxNow * 1.4 + bass * 0.5), 0, 1);
+  if (strength <= 0.03) return;
+
+  // decay the stored frames, blend the fresh one in
+  ectx.globalCompositeOperation = 'destination-out';
+  ectx.globalAlpha = 0.38;
+  ectx.fillRect(0, 0, W, H);
+  ectx.globalCompositeOperation = 'source-over';
+  ectx.globalAlpha = 0.6;
+  ectx.drawImage(ctx.canvas, 0, 0);
+  ectx.globalAlpha = 1;
+
+  // splat it back, scaled around the center — two taps for a richer smear
+  const taps: Array<[number, number]> = [
+    [1 + 0.022 * strength, Math.min(0.5, strength * 0.5)],
+    [1 + 0.05 * strength, Math.min(0.28, strength * 0.28)],
+  ];
+  for (const [k, alpha] of taps) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(W / 2, H / 2);
+    ctx.scale(k, k);
+    ctx.translate(-W / 2, -H / 2);
+    ctx.drawImage(E.canvas as HTMLCanvasElement, 0, 0);
+    ctx.restore();
+  }
 }

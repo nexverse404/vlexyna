@@ -5,6 +5,7 @@
  */
 
 import type { AudioFeatures } from '../engine/analysis';
+import { STYLE_PRESETS, surpriseMe } from '../engine/presets';
 import type { ProjectSettings } from '../state';
 import { canUseWebCodecs } from '../export/encode';
 import { el, fmtBytes, fmtTime, renderControls } from './controls';
@@ -30,6 +31,7 @@ export interface PanelApp {
   rebuild(): void;
   setBadgeCorner(corner: 'bl' | 'br' | 'tl' | 'tr'): void;
   startExport(): void;
+  savePoster(): void;
   cancelExport(): void;
   onAnalysisProgress: ((f: number, label: string) => void) | null;
   onExportProgress: ((f: number, label: string) => void) | null;
@@ -151,6 +153,47 @@ export const PANELS: PanelDef[] = [
     icon: ICONS.look,
     build(container, app) {
       const S = app.settings;
+      container.appendChild(el('div', 'panel-title', 'Style presets'));
+      const row = el('div', 'preset-row');
+      for (const p of STYLE_PRESETS) {
+        const b = el('button', 'preset-btn');
+        b.type = 'button';
+        b.title = `Apply the ${p.label} look`;
+        const dots = el('span', 'preset-dots');
+        for (const c of p.dots) {
+          const d = el('i');
+          d.style.background = c;
+          dots.appendChild(d);
+        }
+        b.appendChild(dots);
+        const lbl = el('span');
+        lbl.textContent = p.label;
+        b.appendChild(lbl);
+        b.addEventListener('click', () => {
+          p.apply(app.settings);
+          app.rebuild();
+          app.changed();
+        });
+        row.appendChild(b);
+      }
+      container.appendChild(row);
+      renderControls(
+        container,
+        [
+          {
+            kind: 'button',
+            label: 'Surprise me',
+            variant: 'ghost',
+            onClick: () => {
+              surpriseMe(app.settings);
+              app.rebuild();
+              app.changed();
+            },
+          },
+        ],
+        () => app.changed(),
+      );
+
       container.appendChild(el('div', 'panel-title', 'Background & color'));
       renderControls(
         container,
@@ -270,6 +313,7 @@ export const PANELS: PanelDef[] = [
           { kind: 'slider', label: 'Zoom release', min: 0.08, max: 0.6, step: 0.01, get: () => S.motion.release, set: (v) => (S.motion.release = v), format: sec, hint: 'How long the zoom takes to settle after each hit.' },
           { kind: 'slider', label: 'Kick shake', min: 0, max: 1, step: 0.01, get: () => S.motion.shake, set: (v) => (S.motion.shake = v), format: pct },
           { kind: 'slider', label: 'Rotation shake', min: 0, max: 1, step: 0.01, get: () => S.motion.rotate, set: (v) => (S.motion.rotate = v), format: pct, hint: 'Adds a subtle rotational jolt to the shake.' },
+          { kind: 'slider', label: 'Hit echo', min: 0, max: 1, step: 0.01, get: () => S.motion.echo, set: (v) => (S.motion.echo = v), format: pct, hint: 'Feedback trails that pump with the hits — motion-blur energy.' },
         ],
         () => app.changed(),
       );
@@ -436,6 +480,7 @@ export const PANELS: PanelDef[] = [
           { kind: 'slider', label: 'Y position', min: 0, max: 1, step: 0.005, get: () => S.badge.y, set: (v) => (S.badge.y = v), format: pos },
           { kind: 'slider', label: 'Scale', min: 0.6, max: 1.6, step: 0.02, get: () => S.badge.scale, set: (v) => (S.badge.scale = v), format: (v) => `${v.toFixed(2)}×` },
           { kind: 'slider', label: 'Opacity', min: 0.2, max: 1, step: 0.01, get: () => S.badge.opacity, set: (v) => (S.badge.opacity = v), format: pct },
+          { kind: 'slider', label: 'Auto-hide', min: 0, max: 30, step: 0.5, get: () => S.badge.autoHide, set: (v) => (S.badge.autoHide = v), format: (v) => (v === 0 ? 'off' : `${v.toFixed(1)} s`), hint: 'Fades the badge out this many seconds after it appears — nice for intros.' },
           {
             kind: 'file',
             label: app.logoName() ? `Logo — ${app.logoName()}` : 'Logo',
@@ -547,6 +592,7 @@ export const PANELS: PanelDef[] = [
             }.`,
           },
           { kind: 'button', label: 'Export video', variant: 'primary', onClick: () => app.startExport() },
+          { kind: 'button', label: 'Save poster (PNG)', variant: 'ghost', onClick: () => app.savePoster() },
         ],
         () => app.changed(),
       );

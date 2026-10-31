@@ -646,6 +646,77 @@ input[type='color'] {
   min-width: 118px;
 }
 
+.loop-btn {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-raise);
+  color: var(--text-faint);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.loop-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.loop-btn:hover {
+  color: var(--text);
+}
+
+.loop-btn.active {
+  color: var(--accent);
+  border-color: rgba(139, 92, 246, 0.5);
+  background: var(--accent-soft);
+}
+
+/* ---------- preset buttons ---------- */
+
+.preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.preset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--text-dim);
+  font: 500 11.5px var(--font);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.preset-btn:hover {
+  color: var(--text);
+  background: rgba(148, 163, 200, 0.07);
+  border-color: rgba(148, 163, 200, 0.3);
+}
+
+.preset-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.preset-dots i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: block;
+}
+
 #timeline {
   flex: 1;
   height: 100%;

@@ -140,23 +140,40 @@ export function drawBackground(input: RenderInput): void {
     const { sx, sy, sw, sh } = coverRect(img.naturalWidth, img.naturalHeight, W, H);
     ctx.drawImage(img, sx, sy, sw, sh, 0, 0, W, H);
   } else {
-    // no media yet — a tasteful gradient stand-in so the app never looks broken
+    // no media yet — an animated stand-in so the app never looks dead
     const g = ctx.createLinearGradient(0, 0, 0, H);
     g.addColorStop(0, palette.tintB);
     g.addColorStop(0.45, palette.base);
     g.addColorStop(1, palette.tintA);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, H);
-    const glowA = ctx.createRadialGradient(W * 0.3, H * 0.25, 0, W * 0.3, H * 0.25, H * 0.7);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const glowA = ctx.createRadialGradient(
+      W * (0.3 + 0.05 * Math.sin(t * 0.21 + 1.7)),
+      H * (0.25 + 0.04 * Math.cos(t * 0.17)),
+      0,
+      W * 0.3,
+      H * 0.25,
+      H * 0.7,
+    );
     glowA.addColorStop(0, rgba(palette.accent, 0.32));
     glowA.addColorStop(1, rgba(palette.accent, 0));
     ctx.fillStyle = glowA;
     ctx.fillRect(0, 0, W, H);
-    const glowB = ctx.createRadialGradient(W * 0.78, H * 0.8, 0, W * 0.78, H * 0.8, H * 0.8);
+    const glowB = ctx.createRadialGradient(
+      W * (0.78 + 0.04 * Math.sin(t * 0.13 + 4.2)),
+      H * (0.8 + 0.03 * Math.cos(t * 0.23)),
+      0,
+      W * 0.78,
+      H * 0.8,
+      H * 0.8,
+    );
     glowB.addColorStop(0, rgba(palette.accent2, 0.22));
     glowB.addColorStop(1, rgba(palette.accent2, 0));
     ctx.fillStyle = glowB;
     ctx.fillRect(0, 0, W, H);
+    ctx.restore();
   }
 
   if (S.background.dim > 0) {
@@ -501,7 +518,9 @@ export function drawBadge(input: RenderInput): void {
   const subtitle = S.badge.subtitle.trim();
   if (!title && !subtitle && !media.logo) return;
 
-  const appear = easeOutCubic(clamp((t - S.intro.duration) / 0.7, 0, 1));
+  const hide =
+    S.badge.autoHide > 0 ? 1 - smoothstep(S.intro.duration + S.badge.autoHide, S.intro.duration + S.badge.autoHide + 0.6, t) : 1;
+  const appear = easeOutCubic(clamp((t - S.intro.duration) / 0.7, 0, 1)) * hide;
   if (appear <= 0) return;
   const sc = S.badge.scale;
   const pad = 0.018 * H * sc;

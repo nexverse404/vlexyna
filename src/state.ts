@@ -37,6 +37,8 @@ export interface ProjectSettings {
     shake: number;
     /** Rotational component of the shake, 0..1. */
     rotate: number;
+    /** Feedback trails on hits ("motion blur"), 0..1. */
+    echo: number;
     /** Keep effects restrained until the drop, then let go. */
     gate: boolean;
     /** Session override of the auto-detected drop time (seconds). */
@@ -94,6 +96,8 @@ export interface ProjectSettings {
     y: number;
     scale: number;    // 0.6..1.6
     opacity: number;  // 0..1
+    /** Fade the badge out this many seconds after it appears. 0 = keep it. */
+    autoHide: number;
   };
   exportCfg: {
     width: number;
@@ -117,7 +121,7 @@ export function defaultSettings(): ProjectSettings {
       glow: 0.6,
       grain: 0.25,
     },
-    motion: { sync: 'onsets', zoomDepth: 0.55, release: 0.22, shake: 0.4, rotate: 1, gate: true, dropTimeOverride: null },
+    motion: { sync: 'onsets', zoomDepth: 0.55, release: 0.22, shake: 0.4, rotate: 1, echo: 0.35, gate: true, dropTimeOverride: null },
     flare: { x: 0.74, y: 0.16, angle: 118, thickness: 1, ghosts: true, reactivity: 0.55 },
     particles: { count: 110, size: 1, speed: 1, reactivity: 0.6, wind: 0, twinkle: 0.35 },
     spectrum: { style: 'bars', x: 0.5, y: 0.975, width: 0.9, bars: 48, height: 0.16, opacity: 0.75, caps: false },
@@ -126,10 +130,11 @@ export function defaultSettings(): ProjectSettings {
       enabled: true,
       title: 'FANTASIZE',
       subtitle: 'DREAM CHAOS FT. BRITT LARI',
-      x: 0.16,
+      x: 0.18,
       y: 0.884,
       scale: 1,
       opacity: 0.95,
+      autoHide: 0,
     },
     exportCfg: { width: 1920, height: 1080, fps: 30, quality: 'high', trimStart: 0, trimEnd: null },
   };
