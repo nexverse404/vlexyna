@@ -1,0 +1,170 @@
++ UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36'
++ VID=lqG7g_EqvT8
++ DL_URL='https://occocc.etacloud.org/api/v1/download?sig=d5suAmFdWKJM0og25JkPAxxTjNb%2FMIcuWfyH2UWRL3s%2B4myi6RvnZKAayStE0toexdRzLJaiAW0VQKPukRIMoxMOKfUqwCXBGk%2BOaAA9UgDoPWxQmbGKeYBvC1ZuTS8%2BIwPwHYv092Un%2FMw0uChK2YN4GJeQgjIaQYQhEwbCdRJi9yZB6HwPWy9jBA3%2B2ROcPYIrMIJk78pjBOUMzOg9CiIkkFNKDl1W3VtbjoYW0MlCzUv2twzHm%2FOHDnpwzc5GHbArMtmr0TchLxA8wrGmhF2Jp06ucpuX3pN2rfdsYiuYV4vucfnZ9g16WbaaUBM3watCyj64SpEfPxo9CeciqA%3D%3D&v=lqG7g_EqvT8&f=mp4&r=y2mate.gs'
++ echo '=== download attempt chain for lqG7g_EqvT8 ==='
+=== download attempt chain for lqG7g_EqvT8 ===
++ curl -fL --retry 2 --max-time 240 -A 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36' -o video.mp4 'https://occocc.etacloud.org/api/v1/download?sig=d5suAmFdWKJM0og25JkPAxxTjNb%2FMIcuWfyH2UWRL3s%2B4myi6RvnZKAayStE0toexdRzLJaiAW0VQKPukRIMoxMOKfUqwCXBGk%2BOaAA9UgDoPWxQmbGKeYBvC1ZuTS8%2BIwPwHYv092Un%2FMw0uChK2YN4GJeQgjIaQYQhEwbCdRJi9yZB6HwPWy9jBA3%2B2ROcPYIrMIJk78pjBOUMzOg9CiIkkFNKDl1W3VtbjoYW0MlCzUv2twzHm%2FOHDnpwzc5GHbArMtmr0TchLxA8wrGmhF2Jp06ucpuX3pN2rfdsYiuYV4vucfnZ9g16WbaaUBM3watCyj64SpEfPxo9CeciqA%3D%3D&v=lqG7g_EqvT8&f=mp4&r=y2mate.gs'
+  % Total    % Received % Xferd  Average Speed  Time    Time    Time   Current
+                                 Dload  Upload  Total   Spent   Left   Speed
+  0      0   0      0   0      0      0      0                              0  0      0   0      0   0      0      0      0           00:01              0
+curl: (22) The requested URL returned error: 403
++ true
++ valid
++ ffprobe -v error -show_entries format=duration -of csv=p=0 video.mp4
++ for CLIENT in default tv tv_simply web_embedded android ios mweb
++ echo '=== yt-dlp player_client=default ==='
+=== yt-dlp player_client=default ===
++ rm -f video.mp4
++ yt-dlp -4 --socket-timeout 20 -f 'bv*[height<=1080]+ba/b[height<=1080]/b' --extractor-args youtube:player_client=default -o video.mp4 'https://www.youtube.com/watch?v=lqG7g_EqvT8'
+[youtube] Extracting URL: https://www.youtube.com/watch?v=lqG7g_EqvT8
+[youtube] lqG7g_EqvT8: Downloading webpage
+WARNING: [youtube] lqG7g_EqvT8: Unable to download webpage: HTTP Error 429: Too Many Requests (caused by <HTTPError 429: Too Many Requests>)
+[youtube] lqG7g_EqvT8: Downloading initial data API JSON
+[youtube] lqG7g_EqvT8: Downloading visionos player API JSON
+WARNING: [youtube] No title found in player responses; falling back to title from initial data. Other metadata may also be missing
+ERROR: [youtube] lqG7g_EqvT8: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to manually pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies
++ true
++ valid
++ ffprobe -v error -show_entries format=duration -of csv=p=0 video.mp4
++ for CLIENT in default tv tv_simply web_embedded android ios mweb
++ echo '=== yt-dlp player_client=tv ==='
+=== yt-dlp player_client=tv ===
++ rm -f video.mp4
++ yt-dlp -4 --socket-timeout 20 -f 'bv*[height<=1080]+ba/b[height<=1080]/b' --extractor-args youtube:player_client=tv -o video.mp4 'https://www.youtube.com/watch?v=lqG7g_EqvT8'
+[youtube] Extracting URL: https://www.youtube.com/watch?v=lqG7g_EqvT8
+[youtube] lqG7g_EqvT8: Downloading webpage
+WARNING: [youtube] lqG7g_EqvT8: Unable to download webpage: HTTP Error 429: Too Many Requests (caused by <HTTPError 429: Too Many Requests>)
+[youtube] lqG7g_EqvT8: Downloading initial data API JSON
+[youtube] lqG7g_EqvT8: Downloading tv client config
+[youtube] lqG7g_EqvT8: Downloading player 11a45ffb-main
+[youtube] lqG7g_EqvT8: Downloading tv player API JSON
+WARNING: [youtube] No title found in player responses; falling back to title from initial data. Other metadata may also be missing
+ERROR: [youtube] lqG7g_EqvT8: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to manually pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies
++ true
++ valid
++ ffprobe -v error -show_entries format=duration -of csv=p=0 video.mp4
++ for CLIENT in default tv tv_simply web_embedded android ios mweb
++ echo '=== yt-dlp player_client=tv_simply ==='
+=== yt-dlp player_client=tv_simply ===
++ rm -f video.mp4
++ yt-dlp -4 --socket-timeout 20 -f 'bv*[height<=1080]+ba/b[height<=1080]/b' --extractor-args youtube:player_client=tv_simply -o video.mp4 'https://www.youtube.com/watch?v=lqG7g_EqvT8'
+[youtube] Extracting URL: https://www.youtube.com/watch?v=lqG7g_EqvT8
+[youtube] lqG7g_EqvT8: Downloading webpage
+WARNING: [youtube] lqG7g_EqvT8: Unable to download webpage: HTTP Error 429: Too Many Requests (caused by <HTTPError 429: Too Many Requests>)
+[youtube] lqG7g_EqvT8: Downloading initial data API JSON
+[youtube] lqG7g_EqvT8: Downloading iframe API JS
+[youtube] lqG7g_EqvT8: Downloading player 11a45ffb-main
+[youtube] lqG7g_EqvT8: Downloading tv simply player API JSON
+ERROR: [youtube] lqG7g_EqvT8: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to manually pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies
++ true
++ valid
++ ffprobe -v error -show_entries format=duration -of csv=p=0 video.mp4
++ for CLIENT in default tv tv_simply web_embedded android ios mweb
++ echo '=== yt-dlp player_client=web_embedded ==='
+=== yt-dlp player_client=web_embedded ===
++ rm -f video.mp4
++ yt-dlp -4 --socket-timeout 20 -f 'bv*[height<=1080]+ba/b[height<=1080]/b' --extractor-args youtube:player_client=web_embedded -o video.mp4 'https://www.youtube.com/watch?v=lqG7g_EqvT8'
+[youtube] Extracting URL: https://www.youtube.com/watch?v=lqG7g_EqvT8
+[youtube] lqG7g_EqvT8: Downloading webpage
+WARNING: [youtube] lqG7g_EqvT8: Unable to download webpage: HTTP Error 429: Too Many Requests (caused by <HTTPError 429: Too Many Requests>)
+[youtube] lqG7g_EqvT8: Downloading initial data API JSON
+[youtube] lqG7g_EqvT8: Downloading web embedded client config
+[youtube] lqG7g_EqvT8: Downloading player 11a45ffb-main
+[youtube] lqG7g_EqvT8: Downloading web embedded player API JSON
+WARNING: [youtube] No title found in player responses; falling back to title from initial data. Other metadata may also be missing
+ERROR: [youtube] lqG7g_EqvT8: Sign in to confirm you’re not a bot. This helps protect our community. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to manually pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies
++ true
++ valid
++ ffprobe -v error -show_entries format=duration -of csv=p=0 video.mp4
++ for CLIENT in default tv tv_simply web_embedded android ios mweb
++ echo '=== yt-dlp player_client=android ==='
+=== yt-dlp player_client=android ===
++ rm -f video.mp4
++ yt-dlp -4 --socket-timeout 20 -f 'bv*[height<=1080]+ba/b[height<=1080]/b' --extractor-args youtube:player_client=android -o video.mp4 'https://www.youtube.com/watch?v=lqG7g_EqvT8'
+[youtube] Extracting URL: https://www.youtube.com/watch?v=lqG7g_EqvT8
+[youtube] lqG7g_EqvT8: Downloading webpage
+WARNING: [youtube] lqG7g_EqvT8: Unable to download webpage: HTTP Error 429: Too Many Requests (caused by <HTTPError 429: Too Many Requests>)
+[youtube] lqG7g_EqvT8: Downloading initial data API JSON
+[youtube] lqG7g_EqvT8: Downloading android player API JSON
+WARNING: [youtube] No title found in player responses; falling back to title from initial data. Other metadata may also be missing
+ERROR: [youtube] lqG7g_EqvT8: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to manually pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies
++ true
++ valid
++ ffprobe -v error -show_entries format=duration -of csv=p=0 video.mp4
++ for CLIENT in default tv tv_simply web_embedded android ios mweb
++ echo '=== yt-dlp player_client=ios ==='
+=== yt-dlp player_client=ios ===
++ rm -f video.mp4
++ yt-dlp -4 --socket-timeout 20 -f 'bv*[height<=1080]+ba/b[height<=1080]/b' --extractor-args youtube:player_client=ios -o video.mp4 'https://www.youtube.com/watch?v=lqG7g_EqvT8'
+[youtube] Extracting URL: https://www.youtube.com/watch?v=lqG7g_EqvT8
+[youtube] lqG7g_EqvT8: Downloading webpage
+WARNING: [youtube] lqG7g_EqvT8: Unable to download webpage: HTTP Error 429: Too Many Requests (caused by <HTTPError 429: Too Many Requests>)
+[youtube] lqG7g_EqvT8: Downloading initial data API JSON
+[youtube] lqG7g_EqvT8: Downloading ios player API JSON
+WARNING: [youtube] No title found in player responses; falling back to title from initial data. Other metadata may also be missing
+ERROR: [youtube] lqG7g_EqvT8: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to manually pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies
++ true
++ valid
++ ffprobe -v error -show_entries format=duration -of csv=p=0 video.mp4
++ for CLIENT in default tv tv_simply web_embedded android ios mweb
++ echo '=== yt-dlp player_client=mweb ==='
+=== yt-dlp player_client=mweb ===
++ rm -f video.mp4
++ yt-dlp -4 --socket-timeout 20 -f 'bv*[height<=1080]+ba/b[height<=1080]/b' --extractor-args youtube:player_client=mweb -o video.mp4 'https://www.youtube.com/watch?v=lqG7g_EqvT8'
+[youtube] Extracting URL: https://www.youtube.com/watch?v=lqG7g_EqvT8
+[youtube] lqG7g_EqvT8: Downloading webpage
+WARNING: [youtube] lqG7g_EqvT8: Unable to download webpage: HTTP Error 429: Too Many Requests (caused by <HTTPError 429: Too Many Requests>)
+[youtube] lqG7g_EqvT8: Downloading initial data API JSON
+[youtube] lqG7g_EqvT8: Downloading mweb client config
+[youtube] lqG7g_EqvT8: Downloading mweb player API JSON
+WARNING: [youtube] No title found in player responses; falling back to title from initial data. Other metadata may also be missing
+ERROR: [youtube] lqG7g_EqvT8: Sign in to confirm you’re not a bot. This helps protect our community. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to manually pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies
++ true
++ valid
++ ffprobe -v error -show_entries format=duration -of csv=p=0 video.mp4
++ valid
++ ffprobe -v error -show_entries format=duration -of csv=p=0 video.mp4
++ echo '=== invidious instance discovery ==='
+=== invidious instance discovery ===
++ curl -fs --max-time 30 'https://api.invidious.io/instances.json?sort_by=health'
++ jq -r '.[].0'
++ grep -v .onion
++ head -12
+jq: error: syntax error, unexpected LITERAL, expecting end of file at <top-level>, line 1, column 4:
+    .[].0
+       ^^
+jq: 1 compile error
++ read -r INST
++ valid
++ ffprobe -v error -show_entries format=duration -of csv=p=0 video.mp4
++ echo '=== soundcloud audio fallback ==='
+=== soundcloud audio fallback ===
++ yt-dlp -4 -o 'audio.%(ext)s' https://soundcloud.com/dream-chaos/dream-chaos-feat-britt-lari-fantasize
+[soundcloud] Downloading main page
+[soundcloud] Downloading JS asset
+[soundcloud] Extracting URL: https://soundcloud.com/dream-chaos/dream-chaos-feat-britt-lari-fantasize
+[soundcloud] dream-chaos/dream-chaos-feat-britt-lari-fantasize: Downloading info JSON
+[soundcloud] 1164365443: Downloading hls_aac format info JSON
+[soundcloud] 1164365443: Downloading hls_aac format info JSON
+[soundcloud] 1164365443: Checking thumbnail extension
+[info] 1164365443: Downloading 1 format(s): hls_aac_160k
+[hlsnative] Downloading m3u8 manifest
+[hlsnative] Total fragments: 15
+[download] Destination: audio.m4a
+[download]   6.7% of ~  11.15KiB at    925.40B/s ETA Unknown (frag 0/15)[download]   3.3% of ~  22.29KiB at    925.40B/s ETA Unknown (frag 1/15)[download]   0.1% of ~   1.45MiB at    1.61KiB/s ETA Unknown (frag 1/15)[download]   0.3% of ~   1.46MiB at    1.61KiB/s ETA Unknown (frag 1/15)[download]   0.5% of ~   1.48MiB at    1.61KiB/s ETA Unknown (frag 1/15)[download]   1.0% of ~   1.50MiB at    1.61KiB/s ETA Unknown (frag 1/15)[download]   2.0% of ~   1.56MiB at   17.17KiB/s ETA Unknown (frag 1/15)[download]   3.7% of ~   1.68MiB at   17.17KiB/s ETA Unknown (frag 1/15)[download]   6.5% of ~   1.91MiB at   70.66KiB/s ETA Unknown (frag 1/15)[download]   8.1% of ~   2.38MiB at  133.12KiB/s ETA Unknown (frag 1/15)[download]   6.7% of ~   2.90MiB at  133.12KiB/s ETA Unknown (frag 2/15)[download]  10.1% of ~   1.93MiB at  157.81KiB/s ETA Unknown (frag 2/15)[download]  10.2% of ~   1.94MiB at  157.81KiB/s ETA Unknown (frag 2/15)[download]  10.3% of ~   1.95MiB at  157.81KiB/s ETA Unknown (frag 2/15)[download]  10.6% of ~   1.97MiB at  157.81KiB/s ETA Unknown (frag 2/15)[download]  11.2% of ~   2.01MiB at  157.81KiB/s ETA Unknown (frag 2/15)[download]  12.3% of ~   2.08MiB at  157.81KiB/s ETA Unknown (frag 2/15)[download]  14.2% of ~   2.24MiB at  157.81KiB/s ETA Unknown (frag 2/15)[download]  15.1% of ~   2.55MiB at  230.61KiB/s ETA Unknown (frag 2/15)[download]  13.3% of ~   2.90MiB at  230.61KiB/s ETA Unknown (frag 3/15)[download]  17.9% of ~   2.17MiB at  254.05KiB/s ETA 00:05 (frag 3/15)  [download]  17.9% of ~   2.17MiB at  254.05KiB/s ETA 00:05 (frag 3/15)[download]  18.0% of ~   2.18MiB at  254.05KiB/s ETA 00:05 (frag 3/15)[download]  18.3% of ~   2.20MiB at  254.05KiB/s ETA 00:05 (frag 3/15)[download]  18.7% of ~   2.23MiB at  273.33KiB/s ETA 00:05 (frag 3/15)[download]  19.6% of ~   2.28MiB at  289.79KiB/s ETA 00:05 (frag 3/15)[download]  21.3% of ~   2.40MiB at  289.79KiB/s ETA 00:05 (frag 3/15)[download]  22.0% of ~   2.64MiB at  325.09KiB/s ETA 00:05 (frag 3/15)[download]  20.0% of ~   2.89MiB at  325.09KiB/s ETA 00:05 (frag 4/15)[download]  25.0% of ~   2.31MiB at  327.33KiB/s ETA 00:05 (frag 4/15)[download]  25.1% of ~   2.32MiB at  327.33KiB/s ETA 00:05 (frag 4/15)[download]  25.2% of ~   2.32MiB at  327.33KiB/s ETA 00:05 (frag 4/15)[download]  25.4% of ~   2.33MiB at  327.33KiB/s ETA 00:05 (frag 4/15)[download]  25.8% of ~   2.36MiB at  330.75KiB/s ETA 00:05 (frag 4/15)[download]  26.6% of ~   2.41MiB at  330.75KiB/s ETA 00:05 (frag 4/15)[download]  28.1% of ~   2.50MiB at  345.23KiB/s ETA 00:05 (frag 4/15)[download]  28.7% of ~   2.69MiB at  362.86KiB/s ETA 00:05 (frag 4/15)[download]  26.7% of ~   2.89MiB at  362.86KiB/s ETA 00:05 (frag 5/15)[download]  32.0% of ~   2.41MiB at  358.99KiB/s ETA 00:05 (frag 5/15)[download]  32.1% of ~   2.41MiB at  358.99KiB/s ETA 00:05 (frag 5/15)[download]  32.2% of ~   2.42MiB at  358.99KiB/s ETA 00:05 (frag 5/15)[download]  32.4% of ~   2.43MiB at  358.99KiB/s ETA 00:05 (frag 5/15)[download]  32.8% of ~   2.45MiB at  357.61KiB/s ETA 00:05 (frag 5/15)[download]  33.5% of ~   2.49MiB at  357.61KiB/s ETA 00:05 (frag 5/15)[download]  34.9% of ~   2.56MiB at  366.22KiB/s ETA 00:05 (frag 5/15)[download]  35.4% of ~   2.72MiB at  378.20KiB/s ETA 00:05 (frag 5/15)[download]  33.3% of ~   2.89MiB at  378.20KiB/s ETA 00:05 (frag 6/15)[download]  38.9% of ~   2.48MiB at  373.36KiB/s ETA 00:05 (frag 6/15)[download]  39.0% of ~   2.48MiB at  373.36KiB/s ETA 00:05 (frag 6/15)[download]  39.1% of ~   2.48MiB at  373.36KiB/s ETA 00:05 (frag 6/15)[download]  39.3% of ~   2.49MiB at  373.36KiB/s ETA 00:05 (frag 6/15)[download]  39.6% of ~   2.51MiB at  371.01KiB/s ETA 00:05 (frag 6/15)[download]  40.3% of ~   2.54MiB at  370.53KiB/s ETA 00:04 (frag 6/15)[download]  41.7% of ~   2.61MiB at  370.53KiB/s ETA 00:04 (frag 6/15)[download]  42.1% of ~   2.74MiB at  381.84KiB/s ETA 00:04 (frag 6/15)[download]  40.0% of ~   2.89MiB at  381.84KiB/s ETA 00:04 (frag 7/15)[download]  45.8% of ~   2.53MiB at  387.51KiB/s ETA 00:04 (frag 7/15)[download]  45.8% of ~   2.53MiB at  387.51KiB/s ETA 00:04 (frag 7/15)[download]  45.9% of ~   2.54MiB at  387.51KiB/s ETA 00:04 (frag 7/15)[download]  46.1% of ~   2.54MiB at  387.51KiB/s ETA 00:04 (frag 7/15)[download]  46.4% of ~   2.56MiB at  404.93KiB/s ETA 00:04 (frag 7/15)[download]  47.1% of ~   2.59MiB at  404.93KiB/s ETA 00:04 (frag 7/15)[download]  48.4% of ~   2.64MiB at  424.50KiB/s ETA 00:04 (frag 7/15)[download]  48.8% of ~   2.76MiB at  442.93KiB/s ETA 00:04 (frag 7/15)[download]  46.7% of ~   2.89MiB at  442.93KiB/s ETA 00:04 (frag 8/15)[download]  52.5% of ~   2.57MiB at  446.66KiB/s ETA 00:04 (frag 8/15)[download]  52.6% of ~   2.57MiB at  446.66KiB/s ETA 00:04 (frag 8/15)[download]  52.7% of ~   2.57MiB at  446.66KiB/s ETA 00:04 (frag 8/15)[download]  52.8% of ~   2.58MiB at  446.66KiB/s ETA 00:04 (frag 8/15)[download]  53.2% of ~   2.59MiB at  446.66KiB/s ETA 00:04 (frag 8/15)[download]  53.8% of ~   2.62MiB at  446.66KiB/s ETA 00:04 (frag 8/15)[download]  55.1% of ~   2.67MiB at  446.66KiB/s ETA 00:04 (frag 8/15)[download]  55.5% of ~   2.78MiB at  446.66KiB/s ETA 00:04 (frag 8/15)[download]  53.3% of ~   2.89MiB at  446.66KiB/s ETA 00:04 (frag 9/15)[download]  59.3% of ~   2.60MiB at  451.51KiB/s ETA 00:03 (frag 9/15)[download]  59.4% of ~   2.60MiB at  451.51KiB/s ETA 00:03 (frag 9/15)[download]  59.4% of ~   2.61MiB at  451.51KiB/s ETA 00:03 (frag 9/15)[download]  59.6% of ~   2.61MiB at  451.51KiB/s ETA 00:03 (frag 9/15)[download]  59.9% of ~   2.62MiB at  438.39KiB/s ETA 00:03 (frag 9/15)[download]  60.6% of ~   2.65MiB at  438.39KiB/s ETA 00:03 (frag 9/15)[download]  61.8% of ~   2.69MiB at  450.25KiB/s ETA 00:03 (frag 9/15)[download]  62.2% of ~   2.79MiB at  463.09KiB/s ETA 00:03 (frag 9/15)[download]  60.0% of ~   2.89MiB at  463.09KiB/s ETA 00:03 (frag 10/15)[download]  66.0% of ~   2.63MiB at  457.05KiB/s ETA 00:03 (frag 10/15)[download]  66.1% of ~   2.63MiB at  457.05KiB/s ETA 00:03 (frag 10/15)[download]  66.2% of ~   2.63MiB at  457.05KiB/s ETA 00:03 (frag 10/15)[download]  66.3% of ~   2.64MiB at  457.05KiB/s ETA 00:03 (frag 10/15)[download]  66.6% of ~   2.65MiB at  442.29KiB/s ETA 00:03 (frag 10/15)[download]  67.3% of ~   2.67MiB at  447.71KiB/s ETA 00:03 (frag 10/15)[download]  68.5% of ~   2.71MiB at  447.71KiB/s ETA 00:03 (frag 10/15)[download]  68.9% of ~   2.80MiB at  463.13KiB/s ETA 00:02 (frag 10/15)[download]  66.7% of ~   2.89MiB at  463.13KiB/s ETA 00:02 (frag 11/15)[download]  72.8% of ~   2.65MiB at  449.72KiB/s ETA 00:02 (frag 11/15)[download]  72.8% of ~   2.65MiB at  449.72KiB/s ETA 00:02 (frag 11/15)[download]  72.9% of ~   2.65MiB at  449.72KiB/s ETA 00:02 (frag 11/15)[download]  73.0% of ~   2.66MiB at  449.72KiB/s ETA 00:02 (frag 11/15)[download]  73.4% of ~   2.67MiB at  449.79KiB/s ETA 00:02 (frag 11/15)[download]  74.0% of ~   2.69MiB at  449.79KiB/s ETA 00:02 (frag 11/15)[download]  75.2% of ~   2.73MiB at  457.07KiB/s ETA 00:02 (frag 11/15)[download]  75.6% of ~   2.80MiB at  466.78KiB/s ETA 00:02 (frag 11/15)[download]  73.3% of ~   2.89MiB at  466.78KiB/s ETA 00:02 (frag 12/15)[download]  79.5% of ~   2.67MiB at  446.28KiB/s ETA 00:02 (frag 12/15)[download]  79.5% of ~   2.67MiB at  446.28KiB/s ETA 00:02 (frag 12/15)[download]  79.6% of ~   2.67MiB at  446.28KiB/s ETA 00:02 (frag 12/15)[download]  79.8% of ~   2.68MiB at  446.28KiB/s ETA 00:02 (frag 12/15)[download]  80.1% of ~   2.68MiB at  445.74KiB/s ETA 00:02 (frag 12/15)[download]  80.7% of ~   2.70MiB at  445.74KiB/s ETA 00:02 (frag 12/15)[download]  81.9% of ~   2.74MiB at  452.94KiB/s ETA 00:02 (frag 12/15)[download]  82.3% of ~   2.81MiB at  462.43KiB/s ETA 00:02 (frag 12/15)[download]  80.0% of ~   2.89MiB at  462.43KiB/s ETA 00:02 (frag 13/15)[download]  86.2% of ~   2.68MiB at  442.14KiB/s ETA 00:01 (frag 13/15)[download]  86.2% of ~   2.68MiB at  442.14KiB/s ETA 00:01 (frag 13/15)[download]  86.3% of ~   2.69MiB at  442.14KiB/s ETA 00:01 (frag 13/15)[download]  86.5% of ~   2.69MiB at  442.14KiB/s ETA 00:01 (frag 13/15)[download]  86.8% of ~   2.70MiB at  441.58KiB/s ETA 00:01 (frag 13/15)[download]  87.4% of ~   2.72MiB at  441.58KiB/s ETA 00:01 (frag 13/15)[download]  88.6% of ~   2.75MiB at  448.68KiB/s ETA 00:01 (frag 13/15)[download]  88.9% of ~   2.82MiB at  458.13KiB/s ETA 00:01 (frag 13/15)[download]  86.7% of ~   2.89MiB at  458.13KiB/s ETA 00:01 (frag 14/15)[download]  92.9% of ~   2.70MiB at  447.36KiB/s ETA 00:01 (frag 14/15)[download]  92.9% of ~   2.70MiB at  447.36KiB/s ETA 00:01 (frag 14/15)[download]  93.0% of ~   2.70MiB at  447.36KiB/s ETA 00:01 (frag 14/15)[download]  93.2% of ~   2.70MiB at  447.36KiB/s ETA 00:01 (frag 14/15)[download]  93.5% of ~   2.71MiB at  447.36KiB/s ETA 00:01 (frag 14/15)[download]  94.1% of ~   2.73MiB at  447.36KiB/s ETA 00:01 (frag 14/15)[download]  95.3% of ~   2.76MiB at  447.36KiB/s ETA 00:01 (frag 14/15)[download]  95.6% of ~   2.82MiB at  447.36KiB/s ETA 00:01 (frag 14/15)[download]  93.3% of ~   2.89MiB at  447.36KiB/s ETA 00:01 (frag 15/15)[download] 100.0% of ~   2.70MiB at  446.00KiB/s ETA 00:01 (frag 15/15)[download] 100.0% of ~   2.70MiB at  446.00KiB/s ETA 00:01 (frag 15/15)[download] 100.0% of ~   2.70MiB at  446.00KiB/s ETA 00:01 (frag 15/15)[download] 100.0% of ~   2.71MiB at  446.00KiB/s ETA 00:01 (frag 15/15)[download] 100.0% of ~   2.73MiB at  445.59KiB/s ETA 00:01 (frag 15/15)[download] 100.0% of ~   2.76MiB at  445.97KiB/s ETA 00:01 (frag 15/15)[download] 100.0% of ~   2.80MiB at  445.97KiB/s ETA 00:01 (frag 15/15)[download] 100.0% of ~   2.80MiB at  445.97KiB/s ETA 00:01 (frag 16/15)[download] 100% of    2.80MiB in 00:00:06 at 428.48KiB/s               
+[FixupM4a] Correcting container of "audio.m4a"
++ valid
++ ffprobe -v error -show_entries format=duration -of csv=p=0 video.mp4
++ echo '::error::video could not be downloaded (audio may still have landed)'
+::error::video could not be downloaded (audio may still have landed)
++ ls -la .
+total 2912
+drwxr-xr-x 5 runner runner    4096 Oct 31 08:15 .
+drwxr-xr-x 3 runner runner    4096 Oct 31 08:14 ..
+drwxr-xr-x 7 runner runner    4096 Oct 31 08:14 .git
+drwxr-xr-x 3 runner runner    4096 Oct 31 08:14 .github
+-rw-r--r-- 1 runner runner 2936301 Oct 31 08:15 audio.m4a
+-rw-r--r-- 1 runner runner   22697 Oct 31 08:15 fetch.log
+-rw-r--r-- 1 runner runner       0 Oct 31 08:15 instances.txt
+drwxr-xr-x 2 runner runner    4096 Oct 31 08:14 video-analysis
++ exit 1
