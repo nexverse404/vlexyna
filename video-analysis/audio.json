@@ -1,0 +1,53 @@
+{
+  "track": "Dream Chaos \u2014 Fantasize (Ft. Britt Lari)",
+  "duration_s": 145.5,
+  "bpm": 126.0,
+  "key_estimate": "A# minor",
+  "spectral_balance_pct": {
+    "sub": 2659.4,
+    "bass": 1492.5,
+    "lowmid": 943.2,
+    "mid": 342.9,
+    "high": 91.4,
+    "air": 25.4
+  },
+  "sections": [
+    {
+      "start_s": 0.0,
+      "end_s": 3.8,
+      "energy": "quiet"
+    },
+    {
+      "start_s": 3.8,
+      "end_s": 141.2,
+      "energy": "LOUD"
+    },
+    {
+      "start_s": 141.2,
+      "end_s": 145.5,
+      "energy": "quiet"
+    }
+  ],
+  "arrangement": [
+    {
+      "start_s": 0.0,
+      "end_s": 19.0,
+      "energy": "quiet"
+    },
+    {
+      "start_s": 19.0,
+      "end_s": 141.0,
+      "energy": "LOUD"
+    },
+    {
+      "start_s": 141.0,
+      "end_s": 145.5,
+      "energy": "quiet"
+    }
+  ],
+  "beat_grid": {
+    "bpm": 126,
+    "beat_s": 0.4762,
+    "confirmed_by_autocorr": 0.73
+  }
+}
