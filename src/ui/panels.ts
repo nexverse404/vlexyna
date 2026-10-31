@@ -48,6 +48,7 @@ const ICONS: Record<string, string> = {
   particles: '<circle cx="6" cy="6" r="2"/><circle cx="17" cy="7" r="3"/><circle cx="9" cy="17" r="2.5"/><circle cx="18" cy="16" r="1.5"/>',
   spectrum: '<path d="M4 20V10M9 20V4M14 20v-8M19 20V7"/>',
   badge: '<path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0l-7.2-7.2A2 2 0 013 12V5a2 2 0 012-2h7a2 2 0 011.4.6l7.2 7.2a2 2 0 010 2.6z"/><circle cx="7.5" cy="7.5" r="1.2"/>',
+  reveal: '<rect x="3" y="4" width="5.5" height="16" rx="1.2"/><rect x="15.5" y="4" width="5.5" height="16" rx="1.2"/><path d="M12 5v14" stroke-dasharray="2.2 3"/>',
   export: '<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>',
 };
 
@@ -346,9 +347,9 @@ export const PANELS: PanelDef[] = [
     },
   },
   {
-    id: 'badge',
-    label: 'Reveal & badge',
-    icon: ICONS.badge,
+    id: 'reveal',
+    label: 'Reveal',
+    icon: ICONS.reveal,
     build(container, app) {
       const S = app.settings;
       container.appendChild(el('div', 'panel-title', 'Opening reveal'));
@@ -370,7 +371,14 @@ export const PANELS: PanelDef[] = [
         ],
         () => app.changed(),
       );
-
+    },
+  },
+  {
+    id: 'badge',
+    label: 'Badge',
+    icon: ICONS.badge,
+    build(container, app) {
+      const S = app.settings;
       container.appendChild(el('div', 'panel-title', 'Song badge'));
       renderControls(
         container,

@@ -112,42 +112,44 @@ body {
 }
 
 .chips {
-  display: flex;
-  gap: 4px;
-  padding: 10px 12px 8px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+  padding: 11px 12px;
   border-bottom: 1px solid var(--line);
-  flex-wrap: wrap;
 }
 
 .chip {
-  display: inline-flex;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 5px 9px;
-  border-radius: 999px;
-  border: 1px solid var(--line-strong);
+  justify-content: center;
+  gap: 5px;
+  padding: 9px 2px 8px;
+  border-radius: 10px;
+  border: 1px solid transparent;
   background: transparent;
-  color: var(--text-dim);
-  font: 500 11.5px var(--font);
+  color: var(--text-faint);
+  font: 500 10.5px var(--font);
+  letter-spacing: 0.01em;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .chip svg {
-  width: 13px;
-  height: 13px;
+  width: 16px;
+  height: 16px;
 }
 
 .chip:hover {
   color: var(--text);
-  border-color: var(--line-strong);
-  background: rgba(148, 163, 200, 0.06);
+  background: rgba(148, 163, 200, 0.07);
 }
 
 .chip.active {
-  color: var(--text);
+  color: var(--accent);
   background: var(--accent-soft);
-  border-color: rgba(139, 92, 246, 0.45);
+  border-color: rgba(139, 92, 246, 0.35);
 }
 
 .panel {
@@ -526,12 +528,14 @@ input[type='color'] {
   align-items: center;
   justify-content: center;
   background:
-    radial-gradient(1200px 500px at 50% -10%, rgba(139, 92, 246, 0.05), transparent),
+    radial-gradient(1100px 460px at 50% -8%, rgba(139, 92, 246, 0.06), transparent),
+    radial-gradient(900px 600px at 50% 120%, rgba(20, 30, 60, 0.35), transparent),
     #07090f;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   overflow: hidden;
   position: relative;
+  box-shadow: inset 0 0 90px rgba(0, 0, 0, 0.45);
 }
 
 #view {
@@ -540,6 +544,10 @@ input[type='color'] {
   aspect-ratio: 16 / 9;
   display: block;
   outline: none;
+  border-radius: 6px;
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 .empty {
