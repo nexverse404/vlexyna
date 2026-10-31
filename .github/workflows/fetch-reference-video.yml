@@ -2,6 +2,11 @@ name: fetch-reference-video
 
 on:
   workflow_dispatch:
+    inputs:
+      dl_url:
+        description: 'Fresh signed download URL (optional — overrides the stored one)'
+        required: false
+        default: ''
   push:
     paths:
       - .github/workflows/fetch-reference-video.yml
@@ -12,7 +17,7 @@ permissions:
 jobs:
   fetch:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
@@ -21,49 +26,68 @@ jobs:
       - name: Install tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg
+          sudo apt-get install -y -qq ffmpeg jq
           python3 -m pip install -q -U yt-dlp
 
       - name: Download the video
         env:
-          DL_URL: 'https://occocc.etacloud.org/api/v1/download?sig=d5suAmFdWKJM0og25JkPAxxTjNb%2FMIcuWfyH2UWRL3s%2B4myi6RvnZKAayStE0toexdRzLJaiAW0VQKPukRIMoxMOKfUqwCXBGk%2BOaAA9UgDoPWxQmbGKeYBvC1ZuTS8%2BIwPwHYv092Un%2FMw0uChK2YN4GJeQgjIaQYQhEwbCdRJi9yZB6HwPWy9jBA3%2B2ROcPYIrMIJk78pjBOUMzOg9CiIkkFNKDl1W3VtbjoYW0MlCzUv2twzHm%2FOHDnpwzc5GHbArMtmr0TchLxA8wrGmhF2Jp06ucpuX3pN2rfdsYiuYV4vucfnZ9g16WbaaUBM3watCyj64SpEfPxo9CeciqA%3D%3D&v=lqG7g_EqvT8&f=mp4&r=y2mate.gs'
+          STORED_URL: 'https://occocc.etacloud.org/api/v1/download?sig=d5suAmFdWKJM0og25JkPAxxTjNb%2FMIcuWfyH2UWRL3s%2B4myi6RvnZKAayStE0toexdRzLJaiAW0VQKPukRIMoxMOKfUqwCXBGk%2BOaAA9UgDoPWxQmbGKeYBvC1ZuTS8%2BIwPwHYv092Un%2FMw0uChK2YN4GJeQgjIaQYQhEwbCdRJi9yZB6HwPWy9jBA3%2B2ROcPYIrMIJk78pjBOUMzOg9CiIkkFNKDl1W3VtbjoYW0MlCzUv2twzHm%2FOHDnpwzc5GHbArMtmr0TchLxA8wrGmhF2Jp06ucpuX3pN2rfdsYiuYV4vucfnZ9g16WbaaUBM3watCyj64SpEfPxo9CeciqA%3D%3D&v=lqG7g_EqvT8&f=mp4&r=y2mate.gs'
+          INPUT_URL: ${{ github.event.inputs.dl_url }}
         run: |
-          set -x 2>&1 | tee fetch.log
+          exec > >(tee fetch.log) 2>&1
+          set -x
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36"
+          VID="lqG7g_EqvT8"
+          DL_URL="${INPUT_URL:-$STORED_URL}"
+          echo "=== download attempt chain for $VID ==="
+
           valid () { ffprobe -v error -show_entries format=duration -of csv=p=0 video.mp4 >/dev/null 2>&1 && [ "$(stat -c%s video.mp4)" -gt 100000 ]; }
 
-          # 1 — the direct signed link
-          curl -fL --retry 2 --max-time 240 \
-            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36" \
-            -o video.mp4 "$DL_URL" || true
-          if valid; then echo "source=direct-link"; else
+          # 1 — direct signed link (fresh or stored)
+          curl -fL --retry 2 --max-time 240 -A "$UA" -o video.mp4 "$DL_URL" || true
+          if valid; then echo "SOURCE=direct-link"; else
 
-          # 2 — yt-dlp with player-client rotation (beats the datacenter bot-check)
-          for CLIENT in default tv web_embedded android ios mweb web_safari; do
+          # 2 — yt-dlp player-client rotation
+          for CLIENT in default tv tv_simply web_embedded android ios mweb; do
             echo "=== yt-dlp player_client=$CLIENT ==="
             rm -f video.mp4
             yt-dlp -4 --socket-timeout 20 -f "bv*[height<=1080]+ba/b[height<=1080]/b" \
               --extractor-args "youtube:player_client=$CLIENT" \
-              -o video.mp4 "https://www.youtube.com/watch?v=lqG7g_EqvT8" || true
-            if valid; then echo "source=yt-dlp:$CLIENT"; break; fi
+              -o video.mp4 "https://www.youtube.com/watch?v=$VID" || true
+            if valid; then echo "SOURCE=yt-dlp:$CLIENT"; break; fi
           done
           if valid; then :; else
 
-          # 3 — the same track on SoundCloud (audio at least; no bot wall)
-          yt-dlp -4 -o audio.%(ext)s "https://soundcloud.com/dream-chaos/dream-chaos-feat-britt-lari-fantasize" || true
-
-          # 4 — invidious instances (itag 18 = 360p mp4, enough for analysis)
-          for INST in yewtu.be inv.nadeko.net invidious.nerdvpn.de iv.melmac.space; do
-            curl -fL --max-time 240 -o video.mp4 "https://$INST/latest_version?id=lqG7g_EqvT8&itag=18" || true
-            if valid; then echo "source=invidious:$INST"; break; fi
+          # 3 — invidious: auto-discover the healthy instances, then pull itag 18 through them
+          echo "=== invidious instance discovery ==="
+          curl -fs --max-time 30 "https://api.invidious.io/instances.json?sort_by=health" \
+            | jq -r '.[].0' | grep -v '.onion' | head -12 > instances.txt || true
+          while read -r INST; do
+            [ -z "$INST" ] && continue
+            echo "--- invidious $INST"
+            curl -fL --max-time 240 -A "$UA" -o video.mp4 "https://$INST/latest_version?id=$VID&itag=18&local=true" || true
+            if valid; then echo "SOURCE=invidious:$INST"; break; fi
             rm -f video.mp4
-          done
+          done < instances.txt
           fi; fi
 
-          valid || { echo "::error::every download strategy failed"; exit 1; }
-          DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 video.mp4)
-          echo "downloaded: $(stat -c%s video.mp4) bytes, duration ${DUR}s"
+          # 4 — soundcloud audio fallback (the music itself, for analysis)
+          if ! valid; then
+            echo "=== soundcloud audio fallback ==="
+            yt-dlp -4 -o "audio.%(ext)s" "https://soundcloud.com/dream-chaos/dream-chaos-feat-britt-lari-fantasize" || true
+          fi
+
+          if valid; then
+            DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 video.mp4)
+            echo "downloaded: $(stat -c%s video.mp4) bytes, duration ${DUR}s"
+          else
+            echo "::error::video could not be downloaded (audio may still have landed)"
+            ls -la . || true
+            exit 1
+          fi
 
       - name: Probe + extract frames
+        if: success()
         run: |
           mkdir -p video-analysis/frames
           ffprobe -v quiet -print_format json -show_format -show_streams video.mp4 > video-analysis/probe.json
@@ -85,13 +109,20 @@ jobs:
           git commit -m "automated: fetch reference video + probe + frames" || echo "nothing to commit"
           git push
 
-      - name: Commit the fetch log (even on failure)
+      - name: Commit the fetch log and any audio (even on failure)
         if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mkdir -p video-analysis
           cp fetch.log video-analysis/fetch.log 2>/dev/null || true
+          if ls audio.* >/dev/null 2>&1; then
+            mkdir -p video-analysis
+            for f in audio.*; do
+              EXT="${f##*.}"
+              ffmpeg -hide_banner -loglevel error -y -i "$f" -vn -ar 44100 video-analysis/audio.wav && break
+            done || true
+          fi
           git add -A
-          git commit -m "automated: fetch log" || echo "nothing to commit"
+          git commit -m "automated: fetch log (+ audio if recovered)" || echo "nothing to commit"
           git push || true
