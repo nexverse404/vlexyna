@@ -29,16 +29,35 @@ jobs:
           DL_URL: 'https://occocc.etacloud.org/api/v1/download?sig=d5suAmFdWKJM0og25JkPAxxTjNb%2FMIcuWfyH2UWRL3s%2B4myi6RvnZKAayStE0toexdRzLJaiAW0VQKPukRIMoxMOKfUqwCXBGk%2BOaAA9UgDoPWxQmbGKeYBvC1ZuTS8%2BIwPwHYv092Un%2FMw0uChK2YN4GJeQgjIaQYQhEwbCdRJi9yZB6HwPWy9jBA3%2B2ROcPYIrMIJk78pjBOUMzOg9CiIkkFNKDl1W3VtbjoYW0MlCzUv2twzHm%2FOHDnpwzc5GHbArMtmr0TchLxA8wrGmhF2Jp06ucpuX3pN2rfdsYiuYV4vucfnZ9g16WbaaUBM3watCyj64SpEfPxo9CeciqA%3D%3D&v=lqG7g_EqvT8&f=mp4&r=y2mate.gs'
         run: |
           set -x
-          ok=0
-          curl -fL --retry 3 --max-time 240 \
+          valid () { ffprobe -v error -show_entries format=duration -of csv=p=0 video.mp4 >/dev/null 2>&1 && [ "$(stat -c%s video.mp4)" -gt 100000 ]; }
+
+          # 1 — the direct signed link
+          curl -fL --retry 2 --max-time 240 \
             -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36" \
-            -o video.mp4 "$DL_URL" && ok=1 || true
-          if [ "$ok" != "1" ] || ! ffprobe -v error -show_entries format=duration -of csv=p=0 video.mp4 >/dev/null 2>&1; then
-            echo "::warning::direct link failed or expired — falling back to yt-dlp (YouTube source)"
+            -o video.mp4 "$DL_URL" || true
+          if valid; then echo "source=direct-link"; else
+
+          # 2 — yt-dlp with player-client rotation (beats the datacenter bot-check)
+          for CLIENT in android web_embedded tv ios mweb web_safari; do
+            echo "::group::yt-dlp player_client=$CLIENT"
             rm -f video.mp4
-            yt-dlp -f "bv*[height<=1080]+ba/b[height<=1080]/b" -o video.mp4 "https://www.youtube.com/watch?v=lqG7g_EqvT8"
-          fi
-          test -s video.mp4
+            yt-dlp -f "bv*[height<=1080]+ba/b[height<=1080]/b" \
+              --extractor-args "youtube:player_client=$CLIENT" \
+              --no-warnings -o video.mp4 "https://www.youtube.com/watch?v=lqG7g_EqvT8" || true
+            echo "::endgroup::"
+            if valid; then echo "source=yt-dlp:$CLIENT"; break; fi
+          done
+          if valid; then :; else
+
+          # 3 — invidious instances (itag 18 = 360p mp4, enough for analysis)
+          for INST in yewtu.be inv.nadeko.net invidious.nerdvpn.de; do
+            curl -fL --max-time 240 -o video.mp4 "https://$INST/latest_version?id=lqG7g_EqvT8&itag=18" || true
+            if valid; then echo "source=invidious:$INST"; break; fi
+            rm -f video.mp4
+          done
+          fi; fi
+
+          valid || { echo "::error::every download strategy failed"; exit 1; }
           DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 video.mp4)
           echo "downloaded: $(stat -c%s video.mp4) bytes, duration ${DUR}s"
 
