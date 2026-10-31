@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vlexyna — music video studio</title>
+    <meta name="description" content="Turn a track and a picture into an audio-reactive music video. Beat-locked zoom, shake, bokeh, flare, spectrum, badge — rendered to MP4 in your browser." />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='11' fill='%230b0616'/%3E%3Cpath d='M13.4 4 7 13.2h4.2L10.6 20 17 10.8h-4.2z' fill='%23c86bff'/%3E%3C/svg%3E" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar">
+        <div class="brand">
+          <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="11" fill="none" stroke="currentColor" stroke-width="1.4" />
+            <path d="M13.4 4 7 13.2h4.2L10.6 20 17 10.8h-4.2z" fill="currentColor" />
+          </svg>
+          <span class="brand-name">Vlexyna</span>
+          <span class="brand-tag">music video studio</span>
+        </div>
+        <div class="topbar-actions">
+          <button id="btn-new" class="btn ghost" type="button">New</button>
+          <button id="btn-export-top" class="btn primary" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+            Export video
+          </button>
+        </div>
+      </header>
+
+      <div class="main">
+        <aside class="side">
+          <nav class="chips" id="chips"></nav>
+          <div class="panel" id="panel"></div>
+        </aside>
+
+        <section class="stage-wrap">
+          <div class="stage" id="stage">
+            <canvas id="view" width="1280" height="720"></canvas>
+            <div class="empty" id="empty">
+              <div class="empty-card">
+                <div class="empty-title">Make your first visualizer</div>
+                <p>Drop a track anywhere on this page. Vlexyna finds the tempo, the hits and the drop, then drives zoom, shake, bokeh and flare straight off the music.</p>
+                <div class="empty-actions">
+                  <button id="btn-pick-track" class="btn primary" type="button">Choose a track…</button>
+                  <button id="btn-demo" class="btn ghost" type="button">Try the demo</button>
+                </div>
+                <div class="empty-hint">MP3 · WAV · FLAC · M4A — nothing is uploaded, everything stays in your browser</div>
+              </div>
+            </div>
+          </div>
+          <div class="transport">
+            <button id="btn-play" class="play-btn" type="button" aria-label="Play or pause">
+              <svg class="ico-play" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+              <svg class="ico-pause" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
+            </button>
+            <div class="time" id="time">0:00.0&thinsp;/&thinsp;0:00.0</div>
+            <canvas id="timeline"></canvas>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="drag-veil" id="drag-veil" hidden>
+      <div class="drag-veil-inner">
+        <div class="drag-veil-title">Drop it</div>
+        <div class="drag-veil-sub">audio → the track · image or video → the background</div>
+      </div>
+    </div>
+
+    <input type="file" id="file-track" class="hidden-file" accept="audio/*,.mp3,.wav,.flac,.m4a,.ogg" />
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
