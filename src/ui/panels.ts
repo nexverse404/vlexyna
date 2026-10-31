@@ -28,6 +28,7 @@ export interface PanelApp {
   seek(t: number): void;
   changed(): void;
   rebuild(): void;
+  setBadgeCorner(corner: 'bl' | 'br' | 'tl' | 'tr'): void;
   startExport(): void;
   cancelExport(): void;
   onAnalysisProgress: ((f: number, label: string) => void) | null;
@@ -55,6 +56,12 @@ const ICONS: Record<string, string> = {
 function pct(v: number): string {
   return `${Math.round(v * 100)}%`;
 }
+
+const pos = pct;
+
+const deg = (v: number) => `${Math.round(v)}°`;
+
+const wind = (v: number) => (Math.abs(v) < 0.005 ? 'none' : `${v < 0 ? '←' : '→'} ${Math.round(Math.abs(v) * 100)}%`);
 
 function sec(v: number): string {
   return `${v.toFixed(1)} s`;
@@ -215,6 +222,21 @@ export const PANELS: PanelDef[] = [
         ],
         () => app.changed(),
       );
+
+      container.appendChild(el('div', 'panel-title', 'Lens flare'));
+      renderControls(
+        container,
+        [
+          { kind: 'slider', label: 'Angle', min: 0, max: 360, step: 1, get: () => S.flare.angle, set: (v) => (S.flare.angle = v), format: deg },
+          { kind: 'slider', label: 'Thickness', min: 0.3, max: 3, step: 0.05, get: () => S.flare.thickness, set: (v) => (S.flare.thickness = v), format: (v) => `${v.toFixed(2)}×` },
+          { kind: 'slider', label: 'Reactivity', min: 0, max: 1, step: 0.01, get: () => S.flare.reactivity, set: (v) => (S.flare.reactivity = v), format: pct },
+          { kind: 'toggle', label: 'Ghost circles', get: () => S.flare.ghosts, set: (v) => (S.flare.ghosts = v) },
+          { kind: 'slider', label: 'X position', min: 0, max: 1, step: 0.005, get: () => S.flare.x, set: (v) => (S.flare.x = v), format: pos },
+          { kind: 'slider', label: 'Y position', min: 0, max: 1, step: 0.005, get: () => S.flare.y, set: (v) => (S.flare.y = v), format: pos },
+          { kind: 'note', html: 'Or grab the flare’s bright core on the preview and drag it wherever you want it.' },
+        ],
+        () => app.changed(),
+      );
     },
   },
   {
@@ -245,8 +267,9 @@ export const PANELS: PanelDef[] = [
             hint: hasGrid ? undefined : 'No reliable grid found in this track — “Every hit” is doing the work.',
           },
           { kind: 'slider', label: 'Bass zoom', min: 0, max: 1, step: 0.01, get: () => S.motion.zoomDepth, set: (v) => (S.motion.zoomDepth = v), format: pct, hint: 'The frame breathes in on the bass — the signature move.' },
+          { kind: 'slider', label: 'Zoom release', min: 0.08, max: 0.6, step: 0.01, get: () => S.motion.release, set: (v) => (S.motion.release = v), format: sec, hint: 'How long the zoom takes to settle after each hit.' },
           { kind: 'slider', label: 'Kick shake', min: 0, max: 1, step: 0.01, get: () => S.motion.shake, set: (v) => (S.motion.shake = v), format: pct },
-          { kind: 'slider', label: 'Flare reactivity', min: 0, max: 1, step: 0.01, get: () => S.motion.flare, set: (v) => (S.motion.flare = v), format: pct },
+          { kind: 'slider', label: 'Rotation shake', min: 0, max: 1, step: 0.01, get: () => S.motion.rotate, set: (v) => (S.motion.rotate = v), format: pct, hint: 'Adds a subtle rotational jolt to the shake.' },
         ],
         () => app.changed(),
       );
@@ -311,6 +334,8 @@ export const PANELS: PanelDef[] = [
           { kind: 'slider', label: 'Count', min: 0, max: 240, step: 5, get: () => S.particles.count, set: (v) => (S.particles.count = v), format: (v) => String(v) },
           { kind: 'slider', label: 'Size', min: 0.3, max: 2, step: 0.05, get: () => S.particles.size, set: (v) => (S.particles.size = v), format: (v) => `${v.toFixed(2)}×` },
           { kind: 'slider', label: 'Rise speed', min: 0.2, max: 2, step: 0.05, get: () => S.particles.speed, set: (v) => (S.particles.speed = v), format: (v) => `${v.toFixed(2)}×` },
+          { kind: 'slider', label: 'Wind', min: -1, max: 1, step: 0.02, get: () => S.particles.wind, set: (v) => (S.particles.wind = v), format: wind },
+          { kind: 'slider', label: 'Twinkle', min: 0, max: 1, step: 0.01, get: () => S.particles.twinkle, set: (v) => (S.particles.twinkle = v), format: pct },
           { kind: 'slider', label: 'Reactivity', min: 0, max: 1, step: 0.01, get: () => S.particles.reactivity, set: (v) => (S.particles.reactivity = v), format: pct, hint: 'Brightens and multiplies with the highs and hats.' },
         ],
         () => app.changed(),
@@ -339,8 +364,14 @@ export const PANELS: PanelDef[] = [
             get: () => S.spectrum.style,
             set: (v) => (S.spectrum.style = v as typeof S.spectrum.style),
           },
+          { kind: 'slider', label: 'X position', min: 0, max: 1, step: 0.005, get: () => S.spectrum.x, set: (v) => (S.spectrum.x = v), format: pos },
+          { kind: 'slider', label: S.spectrum.style === 'ring' ? 'Y center' : 'Baseline', min: 0.12, max: 1, step: 0.005, get: () => S.spectrum.y, set: (v) => (S.spectrum.y = v), format: pos },
+          { kind: 'slider', label: 'Width', min: 0.15, max: 1, step: 0.01, get: () => S.spectrum.width, set: (v) => (S.spectrum.width = v), format: pct },
+          { kind: 'slider', label: 'Bars', min: 16, max: 96, step: 1, get: () => S.spectrum.bars, set: (v) => (S.spectrum.bars = v), format: (v) => String(v) },
           { kind: 'slider', label: 'Height', min: 0.05, max: 0.4, step: 0.01, get: () => S.spectrum.height, set: (v) => (S.spectrum.height = v), format: (v) => pct(v * 2.5) },
           { kind: 'slider', label: 'Opacity', min: 0, max: 1, step: 0.01, get: () => S.spectrum.opacity, set: (v) => (S.spectrum.opacity = v), format: pct },
+          { kind: 'toggle', label: 'Peak caps', get: () => S.spectrum.caps, set: (v) => (S.spectrum.caps = v), hint: 'Floating peak-hold markers above the bars.' },
+          { kind: 'note', html: 'Or grab the spectrum on the preview and drag the whole thing anywhere.' },
         ],
         () => app.changed(),
       );
@@ -388,16 +419,21 @@ export const PANELS: PanelDef[] = [
           { kind: 'text', label: 'Subtitle', placeholder: 'ARTIST · LABEL', get: () => S.badge.subtitle, set: (v) => (S.badge.subtitle = v) },
           {
             kind: 'segmented',
-            label: 'Corner',
+            label: 'Corner preset',
             options: [
               { value: 'bl', label: '↙' },
               { value: 'br', label: '↘' },
               { value: 'tl', label: '↖' },
               { value: 'tr', label: '↗' },
             ],
-            get: () => S.badge.position,
-            set: (v) => (S.badge.position = v as typeof S.badge.position),
+            get: () => {
+              const b = app.settings.badge;
+              return `${b.y < 0.5 ? 't' : 'b'}${b.x < 0.5 ? 'l' : 'r'}`;
+            },
+            set: (v) => app.setBadgeCorner(v as 'bl' | 'br' | 'tl' | 'tr'),
           },
+          { kind: 'slider', label: 'X position', min: 0, max: 1, step: 0.005, get: () => S.badge.x, set: (v) => (S.badge.x = v), format: pos },
+          { kind: 'slider', label: 'Y position', min: 0, max: 1, step: 0.005, get: () => S.badge.y, set: (v) => (S.badge.y = v), format: pos },
           { kind: 'slider', label: 'Scale', min: 0.6, max: 1.6, step: 0.02, get: () => S.badge.scale, set: (v) => (S.badge.scale = v), format: (v) => `${v.toFixed(2)}×` },
           { kind: 'slider', label: 'Opacity', min: 0.2, max: 1, step: 0.01, get: () => S.badge.opacity, set: (v) => (S.badge.opacity = v), format: pct },
           {
@@ -418,6 +454,11 @@ export const PANELS: PanelDef[] = [
           () => app.changed(),
         );
       }
+      renderControls(
+        container,
+        [{ kind: 'note', html: 'Or grab the badge on the preview and place it exactly where you want it.' }],
+        () => app.changed(),
+      );
     },
   },
   {

@@ -3,6 +3,8 @@
  * Owns state, playback, file routing, panels, and the export flow.
  */
 
+import './styles.css';
+
 import { analyzeAudio, type AudioFeatures } from './engine/analysis';
 import { createScene, renderFrame, type Scene } from './engine/scene';
 import { loadImageFromBlob, loadVideoFromBlob, type MediaAssets } from './engine/media';
@@ -78,6 +80,7 @@ const app: PanelApp = {
   seek,
   changed,
   rebuild: () => rebuildPanel(),
+  setBadgeCorner,
   startExport,
   cancelExport: () => {
     exportCancelled = true;
@@ -120,6 +123,174 @@ function renderPreview(): void {
   }
   const t = Math.max(0, Math.min(time, features.duration));
   renderFrame(scene, vctx, view.width, view.height, t);
+  drawMoveOverlay();
+}
+
+// ---------------------------------------------------------------------------
+// direct manipulation — grab the badge / spectrum / flare and drag them
+// ---------------------------------------------------------------------------
+
+type MovableKind = 'badge' | 'spectrum' | 'flare';
+let hoverKind: MovableKind | null = null;
+let dragKind: MovableKind | null = null;
+const dragGrab = { dx: 0, dy: 0 };
+
+function hitTest(mx: number, my: number): MovableKind | null {
+  if (!scene) return null;
+  const L = scene.layout;
+  const pad = 14 * (view.width / 1280);
+  if (L.badge && mx >= L.badge.x - pad && mx <= L.badge.x + L.badge.w + pad && my >= L.badge.y - pad && my <= L.badge.y + L.badge.h + pad) {
+    return 'badge';
+  }
+  if (L.spectrum) {
+    const s = L.spectrum;
+    if (mx >= s.x - pad && mx <= s.x + s.w + pad && my >= s.y - pad && my <= s.y + s.h + pad) {
+      return 'spectrum';
+    }
+  }
+  if (L.flare) {
+    const d = Math.hypot(mx - L.flare.x, my - L.flare.y);
+    if (d < 48 * (view.width / 1280)) return 'flare';
+  }
+  return null;
+}
+
+function viewCoords(e: PointerEvent): { mx: number; my: number } {
+  const r = view.getBoundingClientRect();
+  return {
+    mx: ((e.clientX - r.left) / r.width) * view.width,
+    my: ((e.clientY - r.top) / r.height) * view.height,
+  };
+}
+
+view.addEventListener('pointerdown', (e) => {
+  if (!scene || !features) return;
+  const { mx, my } = viewCoords(e);
+  const hit = hitTest(mx, my);
+  if (!hit) return;
+  e.preventDefault();
+  view.setPointerCapture(e.pointerId);
+  dragKind = hit;
+  if (hit === 'badge') {
+    dragGrab.dx = settings.badge.x - mx / view.width;
+    dragGrab.dy = settings.badge.y - my / view.height;
+  } else if (hit === 'spectrum') {
+    dragGrab.dx = settings.spectrum.x - mx / view.width;
+    dragGrab.dy = settings.spectrum.y - my / view.height;
+  } else {
+    dragGrab.dx = settings.flare.x - mx / view.width;
+    dragGrab.dy = settings.flare.y - my / view.height;
+  }
+  view.style.cursor = 'grabbing';
+  needsRender = true;
+});
+
+view.addEventListener('pointermove', (e) => {
+  if (!scene || !features) return;
+  const { mx, my } = viewCoords(e);
+  if (dragKind) {
+    const nx = mx / view.width + dragGrab.dx;
+    const ny = my / view.height + dragGrab.dy;
+    if (dragKind === 'badge') {
+      const b = scene.layout.badge;
+      const halfW = b ? b.w / 2 / view.width : 0.1;
+      const halfH = b ? b.h / 2 / view.height : 0.06;
+      settings.badge.x = Math.min(1 - halfW, Math.max(halfW, nx));
+      settings.badge.y = Math.min(1 - halfH, Math.max(halfH, ny));
+    } else if (dragKind === 'spectrum') {
+      const halfW = settings.spectrum.width / 2;
+      settings.spectrum.x = Math.min(1 - halfW, Math.max(halfW, nx));
+      settings.spectrum.y = Math.min(1, Math.max(0.12, ny));
+    } else {
+      settings.flare.x = Math.min(1, Math.max(0, nx));
+      settings.flare.y = Math.min(1, Math.max(0, ny));
+    }
+    needsRender = true;
+    return;
+  }
+  const hit = hitTest(mx, my);
+  if (hit !== hoverKind) {
+    hoverKind = hit;
+    view.style.cursor = hit ? 'grab' : 'default';
+    needsRender = true;
+  }
+});
+
+function endDrag(): void {
+  if (!dragKind) return;
+  dragKind = null;
+  view.style.cursor = hoverKind ? 'grab' : 'default';
+  changed();
+  rebuildPanel();
+}
+view.addEventListener('pointerup', endDrag);
+view.addEventListener('pointercancel', endDrag);
+view.addEventListener('pointerleave', () => {
+  if (!dragKind && hoverKind) {
+    hoverKind = null;
+    view.style.cursor = 'default';
+    needsRender = true;
+  }
+});
+
+function drawMoveOverlay(): void {
+  const k = dragKind ?? hoverKind;
+  if (!k || !scene) return;
+  const L = scene.layout;
+  const u = view.height / 720;
+  const ctx = vctx;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([7, 5]);
+  let label = '';
+  let lx = 0;
+  let ly = 0;
+  if (k === 'badge' && L.badge) {
+    const b = L.badge;
+    ctx.strokeRect(b.x - 6 * u, b.y - 6 * u, b.w + 12 * u, b.h + 12 * u);
+    label = 'Badge — drag to move';
+    lx = b.x;
+    ly = b.y - 10 * u;
+  } else if (k === 'spectrum' && L.spectrum) {
+    const s = L.spectrum;
+    ctx.strokeRect(s.x, s.y, s.w, s.h);
+    label = 'Spectrum — drag to move';
+    lx = s.x + 4 * u;
+    ly = Math.max(16 * u, s.y - 8 * u);
+  } else if (k === 'flare' && L.flare) {
+    const f = L.flare;
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, 11 * u, 0, Math.PI * 2);
+    ctx.stroke();
+    label = 'Flare — drag to move';
+    lx = f.x + 16 * u;
+    ly = f.y - 8 * u;
+  }
+  if (label) {
+    ctx.setLineDash([]);
+    ctx.font = `600 ${11.5 * u}px Inter, system-ui, sans-serif`;
+    const tw = ctx.measureText(label).width;
+    ctx.fillStyle = 'rgba(10,8,20,0.85)';
+    ctx.fillRect(lx - 5 * u, ly - 12 * u, tw + 10 * u, 17 * u);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(label, lx, ly);
+  }
+  ctx.restore();
+}
+
+/** Snap the badge to a corner using its current rendered size. */
+function setBadgeCorner(c: 'bl' | 'br' | 'tl' | 'tr'): void {
+  const b = scene?.layout.badge;
+  const bw = b ? b.w / view.width : 0.22;
+  const bh = b ? b.h / view.height : 0.12;
+  const mx = 0.045;
+  const my = 0.05;
+  settings.badge.x = c === 'br' || c === 'tr' ? 1 - mx - bw / 2 : mx + bw / 2;
+  settings.badge.y = c === 'tl' || c === 'tr' ? my + bh / 2 : 1 - my - bh / 2;
+  changed();
+  rebuildPanel();
 }
 
 function loop(): void {

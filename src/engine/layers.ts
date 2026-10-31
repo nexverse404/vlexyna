@@ -13,6 +13,12 @@ import type { ProjectSettings } from '../state';
 import type { MediaAssets } from './media';
 import { coverRect } from './media';
 
+export interface LayoutInfo {
+  badge: { x: number; y: number; w: number; h: number } | null;
+  spectrum: { x: number; y: number; w: number; h: number } | null;
+  flare: { x: number; y: number } | null;
+}
+
 export interface RenderInput {
   ctx: CanvasRenderingContext2D;
   W: number;
@@ -24,6 +30,10 @@ export interface RenderInput {
   palette: Palette;
   /** 64-slot scratch buffer for spectrum lookups. */
   specBuf: Float32Array;
+  /** Bass envelope with the user's release setting applied (scene-level). */
+  zoomEnv: Float32Array;
+  /** Filled in by the painters each frame — used for drag hit-testing. */
+  layout: LayoutInfo;
 }
 
 // ---------------------------------------------------------------------------
@@ -102,7 +112,7 @@ export function energyGate(F: AudioFeatures, S: ProjectSettings, t: number): num
 
 export function drawBackground(input: RenderInput): void {
   const { ctx, W, H, t, F, S, media, palette } = input;
-  const zoomEnv = sampleAt(F.zoomEnv, F.fps, t);
+  const zoomEnv = input.zoomEnv ? sampleAt(input.zoomEnv, F.fps, t) : sampleAt(F.zoomEnv, F.fps, t);
   const breath = sampleAt(F.breath, F.fps, t);
   const gate = energyGate(F, S, t);
   const scale = 1.02 + S.motion.zoomDepth * 0.17 * zoomEnv * gate + 0.014 * breath;
@@ -202,7 +212,7 @@ export function applyCamera(input: RenderInput): void {
       const k = S.motion.shake * clamp(strength, 0.15, 1) * Math.exp(-age / 0.085) * (0.35 + 0.65 * gate);
       dx += k * 9 * u * Math.sin(age * 67 + i * 2.1);
       dy += k * 7 * u * Math.cos(age * 83 + i * 3.7);
-      rot += k * 0.0038 * Math.sin(age * 56 + i * 1.3);
+      rot += k * 0.0038 * S.motion.rotate * Math.sin(age * 56 + i * 1.3);
     }
   }
 
@@ -237,16 +247,20 @@ export function drawParticles(input: RenderInput): void {
     const vy = (0.018 + 0.085 * r2) * S.particles.speed * H;
     const swayF = 0.08 + 0.22 * r3;
     const swayA = (0.008 + 0.03 * r4) * W;
-    const x = (r3 * 1.08 - 0.04) * W + swayA * Math.sin(t * swayF * 2 * Math.PI + r5 * 6.283);
+    let x = (r3 * 1.08 - 0.04) * W + swayA * Math.sin(t * swayF * 2 * Math.PI + r5 * 6.283);
+    x += S.particles.wind * 0.055 * W * t; // wind drift
+    x = ((x % W) + W) % W; // wrap horizontally
     const cyc = H + 2 * rad;
     const y = cyc - ((r5 * cyc + vy * t) % cyc) + rad - cyc; // upward, wrapping
 
-    // fade in as a particle enters from the bottom edge (no pop-in)
-    const born = clamp(y / (rad * 3 + 1e-6), 0, 1);
+    // fade in at the bottom edge and near the side edges (no pop-in)
+    const born = clamp(y / (rad * 3 + 1e-6), 0, 1) * clamp(x / (rad * 2 + 1e-6), 0, 1) * clamp((W - x) / (rad * 2 + 1e-6), 0, 1);
 
     const warm = r4 > 0.72;
     const color = r1 > 0.8 ? palette.glow : warm ? palette.tintB : palette.particle;
-    const alpha = (0.10 + 0.26 * r2 * r2) * energy * gate * (warm ? 0.8 : 1) * born;
+    const twinkle =
+      1 - S.particles.twinkle * 0.6 * (0.5 + 0.5 * Math.sin(t * (1.4 + 3.2 * r4) * Math.PI * 2 + r5 * 6.283));
+    const alpha = (0.10 + 0.26 * r2 * r2) * energy * gate * (warm ? 0.8 : 1) * born * twinkle;
 
     const g = ctx.createRadialGradient(x, y, rad * 0.1, x, y, rad);
     g.addColorStop(0, rgba(color, alpha));
@@ -265,16 +279,17 @@ export function drawParticles(input: RenderInput): void {
 // ---------------------------------------------------------------------------
 
 export function drawFlare(input: RenderInput): void {
-  const { ctx, W, H, t, F, S, palette } = input;
+  const { ctx, W, H, t, F, S, palette, layout } = input;
   const gate = energyGate(F, S, t);
   const high = sampleAt(F.bands[4], F.fps, t);
   const fluxNow = sampleAt(F.flux, F.fps, t);
-  const pulse = clamp(S.motion.flare * (0.3 + 0.85 * high + 0.5 * fluxNow) * gate, 0, 1.15);
+  const pulse = clamp(S.flare.reactivity * (0.3 + 0.85 * high + 0.5 * fluxNow) * gate, 0, 1.15);
   if (pulse <= 0.01) return;
 
-  const ox = W * 0.74;
-  const oy = H * 0.16;
-  const ang = 2.06; // radians, pointing down-left across the frame
+  const ox = S.flare.x * W;
+  const oy = S.flare.y * H;
+  layout.flare = { x: ox, y: oy };
+  const ang = (S.flare.angle * Math.PI) / 180;
   const len = W * 1.05;
   const ux = Math.cos(ang);
   const uy = Math.sin(ang);
@@ -298,7 +313,7 @@ export function drawFlare(input: RenderInput): void {
   grad.addColorStop(0.58, rgba(palette.glow, 0.34 * pulse));
   grad.addColorStop(1, rgba(palette.glow, 0));
   ctx.strokeStyle = grad;
-  ctx.lineWidth = H * 0.016;
+  ctx.lineWidth = H * 0.016 * S.flare.thickness;
   ctx.lineCap = 'round';
   ctx.beginPath();
   ctx.moveTo(ox - ux * len * 0.5, oy - uy * len * 0.5);
@@ -306,21 +321,23 @@ export function drawFlare(input: RenderInput): void {
   ctx.stroke();
 
   // ghost circles along the optical axis
-  const ghosts: Array<[number, number, number]> = [
-    [0.25, 0.030, 0.35],
-    [0.45, 0.055, 0.22],
-    [0.70, 0.020, 0.45],
-    [1.05, 0.075, 0.16],
-  ];
-  for (const [d, r, a] of ghosts) {
-    const gx = ox - ux * len * d;
-    const gy = oy - uy * len * d;
-    if (gx < -H || gx > W + H || gy < -H || gy > H + H) continue;
-    ctx.beginPath();
-    ctx.arc(gx, gy, r * H, 0, Math.PI * 2);
-    ctx.strokeStyle = rgba(d > 0.6 ? palette.accent : palette.glow, a * pulse * 0.55);
-    ctx.lineWidth = H * 0.0022;
-    ctx.stroke();
+  if (S.flare.ghosts) {
+    const ghosts: Array<[number, number, number]> = [
+      [0.25, 0.030, 0.35],
+      [0.45, 0.055, 0.22],
+      [0.70, 0.020, 0.45],
+      [1.05, 0.075, 0.16],
+    ];
+    for (const [d, r, a] of ghosts) {
+      const gx = ox - ux * len * d;
+      const gy = oy - uy * len * d;
+      if (gx < -H || gx > W + H || gy < -H || gy > H + H) continue;
+      ctx.beginPath();
+      ctx.arc(gx, gy, r * H, 0, Math.PI * 2);
+      ctx.strokeStyle = rgba(d > 0.6 ? palette.accent : palette.glow, a * pulse * 0.55);
+      ctx.lineWidth = H * 0.0022;
+      ctx.stroke();
+    }
   }
   ctx.restore();
 }
@@ -329,8 +346,11 @@ export function drawFlare(input: RenderInput): void {
 // spectrum
 // ---------------------------------------------------------------------------
 
+let peakHold: Float32Array | null = null;
+let peakHoldBars = 0;
+
 export function drawSpectrum(input: RenderInput): void {
-  const { ctx, W, H, t, F, S, palette, specBuf } = input;
+  const { ctx, W, H, t, F, S, palette, specBuf, layout } = input;
   if (S.spectrum.style === 'off') return;
   spectrumAt(F, t, specBuf);
   const gate = energyGate(F, S, t);
@@ -345,10 +365,19 @@ export function drawSpectrum(input: RenderInput): void {
 
   const style = S.spectrum.style;
   if (style === 'bars' || style === 'mirror') {
-    const bars = 48;
-    const usable = style === 'bars' ? W * 0.9 : W * 0.72;
+    const bars = Math.max(8, Math.round(S.spectrum.bars));
+    const usable = W * S.spectrum.width;
+    const x0 = S.spectrum.x * W - usable / 2;
+    const baseY = S.spectrum.y * H;
     const bw = usable / bars;
-    const x0 = style === 'bars' ? W * 0.05 : W / 2;
+
+    if (S.spectrum.caps) {
+      if (!peakHold || peakHoldBars !== bars) {
+        peakHold = new Float32Array(bars);
+        peakHoldBars = bars;
+      }
+    }
+
     for (let i = 0; i < bars; i++) {
       // sample the log spectrum, leaning on the low end where the music lives
       const pos = i / (bars - 1);
@@ -358,25 +387,37 @@ export function drawSpectrum(input: RenderInput): void {
       const h = Math.max(2, v * maxH);
       const mix = pos;
       const col = mixHex(palette.accent, palette.accent2, mix);
-      ctx.fillStyle = col;
+
+      if (S.spectrum.caps && peakHold) {
+        peakHold[i] = Math.max(peakHold[i] * 0.975, v);
+        const capY = baseY - Math.max(6, peakHold[i] * maxH) - H * 0.008;
+        ctx.fillStyle = rgba(palette.glow, 0.9);
+        rr(ctx, x0 + i * bw + bw * 0.18, capY, bw * 0.64, Math.max(2, H * 0.0035), bw * 0.2);
+        ctx.fill();
+        ctx.fillStyle = col;
+      } else {
+        ctx.fillStyle = col;
+      }
+
       if (style === 'bars') {
         const x = x0 + i * bw + bw * 0.18;
-        rr(ctx, x, H - h - H * 0.025, bw * 0.64, h, bw * 0.32);
+        rr(ctx, x, baseY - h, bw * 0.64, h, bw * 0.32);
         ctx.fill();
       } else {
         const x = x0 + (i / bars) * (usable / 2);
-        rr(ctx, x, H - h - H * 0.025, bw * 0.64 * 0.5 + 1, h, bw * 0.3);
+        rr(ctx, x, baseY - h, bw * 0.64 * 0.5 + 1, h, bw * 0.3);
         ctx.fill();
         const xm = x0 - (i / bars) * (usable / 2) - bw * 0.32;
-        rr(ctx, xm, H - h - H * 0.025, bw * 0.64 * 0.5 + 1, h, bw * 0.3);
+        rr(ctx, xm, baseY - h, bw * 0.64 * 0.5 + 1, h, bw * 0.3);
         ctx.fill();
       }
     }
+    layout.spectrum = { x: x0, y: baseY - maxH, w: usable, h: maxH };
   } else if (style === 'ring') {
-    const cx = W / 2;
-    const cy = H * 0.46;
+    const cx = S.spectrum.x * W;
+    const cy = S.spectrum.y * H;
     const baseR = Math.min(W, H) * 0.185;
-    const bars = 72;
+    const bars = Math.max(16, Math.round(S.spectrum.bars * 1.5));
     ctx.lineWidth = Math.max(2, H * 0.0042);
     for (let i = 0; i < bars; i++) {
       const pos = i / bars;
@@ -400,6 +441,8 @@ export function drawSpectrum(input: RenderInput): void {
     ctx.beginPath();
     ctx.arc(cx, cy, baseR - H * 0.008, 0, Math.PI * 2);
     ctx.stroke();
+    const R = baseR + maxH * 1.15;
+    layout.spectrum = { x: cx - R, y: cy - R, w: 2 * R, h: 2 * R };
   }
   ctx.restore();
 }
@@ -452,7 +495,7 @@ export function drawReveal(input: RenderInput): void {
 // ---------------------------------------------------------------------------
 
 export function drawBadge(input: RenderInput): void {
-  const { ctx, W, H, t, S, media, palette } = input;
+  const { ctx, W, H, t, S, media, palette, layout } = input;
   if (!S.badge.enabled) return;
   const title = S.badge.title.trim();
   const subtitle = S.badge.subtitle.trim();
@@ -488,15 +531,12 @@ export function drawBadge(input: RenderInput): void {
   const boxH = d + pad * 2;
   const boxW = pad + d + gap + textW + pad * 1.6;
 
-  const pos = S.badge.position;
-  const mX = 0.042 * W;
-  const mY = 0.055 * H;
-  const right = pos === 'br' || pos === 'tr';
-  const top = pos === 'tl' || pos === 'tr';
-  const slide = (1 - appear) * 0.03 * W * (right ? 1 : -1);
-  const x0 = right ? W - mX - boxW + slide : mX + slide;
-  const y0 = top ? mY : H - mY - boxH;
+  const cx = S.badge.x * W;
+  const cy = S.badge.y * H + (1 - appear) * 0.02 * H; // settles upward as it appears
+  const x0 = cx - boxW / 2;
+  const y0 = cy - boxH / 2;
 
+  layout.badge = { x: x0, y: y0, w: boxW, h: boxH };
   ctx.globalAlpha = S.badge.opacity * appear;
 
   // pill
@@ -511,31 +551,31 @@ export function drawBadge(input: RenderInput): void {
   // logo disc
   const lx = x0 + pad;
   const ly = y0 + pad;
-  const cx = lx + d / 2;
-  const cy = ly + d / 2;
+  const dcx = lx + d / 2;
+  const dcy = ly + d / 2;
 
   if (media.logo && media.logo.naturalWidth > 0) {
     ctx.save();
     ctx.beginPath();
-    ctx.arc(cx, cy, d / 2, 0, Math.PI * 2);
+    ctx.arc(dcx, dcy, d / 2, 0, Math.PI * 2);
     ctx.clip();
     const { sx, sy, sw, sh } = coverRect(media.logo.naturalWidth, media.logo.naturalHeight, d, d);
     ctx.drawImage(media.logo, sx, sy, sw, sh, lx, ly, d, d);
     ctx.restore();
   } else {
-    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, d / 2);
+    const g = ctx.createRadialGradient(dcx, dcy, 0, dcx, dcy, d / 2);
     g.addColorStop(0, rgba(palette.accent, 0.55));
     g.addColorStop(1, rgba(palette.base, 0.9));
     ctx.fillStyle = g;
     ctx.beginPath();
-    ctx.arc(cx, cy, d / 2, 0, Math.PI * 2);
+    ctx.arc(dcx, dcy, d / 2, 0, Math.PI * 2);
     ctx.fill();
-    drawBolt(ctx, cx, cy, d * 0.72, rgba(palette.glow, 0.95));
+    drawBolt(ctx, dcx, dcy, d * 0.72, rgba(palette.glow, 0.95));
   }
   ctx.strokeStyle = rgba(palette.accent, 0.85);
   ctx.lineWidth = Math.max(1.2, H * 0.0018);
   ctx.beginPath();
-  ctx.arc(cx, cy, d / 2 + ctx.lineWidth * 0.8, 0, Math.PI * 2);
+  ctx.arc(dcx, dcy, d / 2 + ctx.lineWidth * 0.8, 0, Math.PI * 2);
   ctx.stroke();
 
   // text block
