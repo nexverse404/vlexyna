@@ -1,0 +1,64 @@
+name: fetch-reference-video
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/fetch-reference-video.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Install tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          python3 -m pip install -q -U yt-dlp
+
+      - name: Download the video
+        env:
+          DL_URL: 'https://occocc.etacloud.org/api/v1/download?sig=d5suAmFdWKJM0og25JkPAxxTjNb%2FMIcuWfyH2UWRL3s%2B4myi6RvnZKAayStE0toexdRzLJaiAW0VQKPukRIMoxMOKfUqwCXBGk%2BOaAA9UgDoPWxQmbGKeYBvC1ZuTS8%2BIwPwHYv092Un%2FMw0uChK2YN4GJeQgjIaQYQhEwbCdRJi9yZB6HwPWy9jBA3%2B2ROcPYIrMIJk78pjBOUMzOg9CiIkkFNKDl1W3VtbjoYW0MlCzUv2twzHm%2FOHDnpwzc5GHbArMtmr0TchLxA8wrGmhF2Jp06ucpuX3pN2rfdsYiuYV4vucfnZ9g16WbaaUBM3watCyj64SpEfPxo9CeciqA%3D%3D&v=lqG7g_EqvT8&f=mp4&r=y2mate.gs'
+        run: |
+          set -x
+          ok=0
+          curl -fL --retry 3 --max-time 240 \
+            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36" \
+            -o video.mp4 "$DL_URL" && ok=1 || true
+          if [ "$ok" != "1" ] || ! ffprobe -v error -show_entries format=duration -of csv=p=0 video.mp4 >/dev/null 2>&1; then
+            echo "::warning::direct link failed or expired — falling back to yt-dlp (YouTube source)"
+            rm -f video.mp4
+            yt-dlp -f "bv*[height<=1080]+ba/b[height<=1080]/b" -o video.mp4 "https://www.youtube.com/watch?v=lqG7g_EqvT8"
+          fi
+          test -s video.mp4
+          DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 video.mp4)
+          echo "downloaded: $(stat -c%s video.mp4) bytes, duration ${DUR}s"
+
+      - name: Probe + extract frames
+        run: |
+          mkdir -p video-analysis/frames
+          ffprobe -v quiet -print_format json -show_format -show_streams video.mp4 > video-analysis/probe.json
+          ffmpeg -hide_banner -loglevel error -y -i video.mp4 -vf "fps=1/5,scale=480:-2" -q:v 4 video-analysis/frames/f_%03d.jpg
+          echo "frames extracted: $(ls video-analysis/frames | wc -l)"
+
+      - name: Commit video + analysis into the branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          SIZE=$(stat -c%s video.mp4)
+          if [ "$SIZE" -le 94371840 ]; then
+            cp video.mp4 video-analysis/reference.mp4
+          else
+            echo "::warning::video too large to commit ($SIZE bytes) — committing analysis only"
+          fi
+          git add -A
+          git commit -m "automated: fetch reference video + probe + frames" || echo "nothing to commit"
+          git push
