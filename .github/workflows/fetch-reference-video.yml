@@ -28,7 +28,7 @@ jobs:
         env:
           DL_URL: 'https://occocc.etacloud.org/api/v1/download?sig=d5suAmFdWKJM0og25JkPAxxTjNb%2FMIcuWfyH2UWRL3s%2B4myi6RvnZKAayStE0toexdRzLJaiAW0VQKPukRIMoxMOKfUqwCXBGk%2BOaAA9UgDoPWxQmbGKeYBvC1ZuTS8%2BIwPwHYv092Un%2FMw0uChK2YN4GJeQgjIaQYQhEwbCdRJi9yZB6HwPWy9jBA3%2B2ROcPYIrMIJk78pjBOUMzOg9CiIkkFNKDl1W3VtbjoYW0MlCzUv2twzHm%2FOHDnpwzc5GHbArMtmr0TchLxA8wrGmhF2Jp06ucpuX3pN2rfdsYiuYV4vucfnZ9g16WbaaUBM3watCyj64SpEfPxo9CeciqA%3D%3D&v=lqG7g_EqvT8&f=mp4&r=y2mate.gs'
         run: |
-          set -x
+          set -x 2>&1 | tee fetch.log
           valid () { ffprobe -v error -show_entries format=duration -of csv=p=0 video.mp4 >/dev/null 2>&1 && [ "$(stat -c%s video.mp4)" -gt 100000 ]; }
 
           # 1 — the direct signed link
@@ -38,19 +38,21 @@ jobs:
           if valid; then echo "source=direct-link"; else
 
           # 2 — yt-dlp with player-client rotation (beats the datacenter bot-check)
-          for CLIENT in android web_embedded tv ios mweb web_safari; do
-            echo "::group::yt-dlp player_client=$CLIENT"
+          for CLIENT in default tv web_embedded android ios mweb web_safari; do
+            echo "=== yt-dlp player_client=$CLIENT ==="
             rm -f video.mp4
-            yt-dlp -f "bv*[height<=1080]+ba/b[height<=1080]/b" \
+            yt-dlp -4 --socket-timeout 20 -f "bv*[height<=1080]+ba/b[height<=1080]/b" \
               --extractor-args "youtube:player_client=$CLIENT" \
-              --no-warnings -o video.mp4 "https://www.youtube.com/watch?v=lqG7g_EqvT8" || true
-            echo "::endgroup::"
+              -o video.mp4 "https://www.youtube.com/watch?v=lqG7g_EqvT8" || true
             if valid; then echo "source=yt-dlp:$CLIENT"; break; fi
           done
           if valid; then :; else
 
-          # 3 — invidious instances (itag 18 = 360p mp4, enough for analysis)
-          for INST in yewtu.be inv.nadeko.net invidious.nerdvpn.de; do
+          # 3 — the same track on SoundCloud (audio at least; no bot wall)
+          yt-dlp -4 -o audio.%(ext)s "https://soundcloud.com/dream-chaos/dream-chaos-feat-britt-lari-fantasize" || true
+
+          # 4 — invidious instances (itag 18 = 360p mp4, enough for analysis)
+          for INST in yewtu.be inv.nadeko.net invidious.nerdvpn.de iv.melmac.space; do
             curl -fL --max-time 240 -o video.mp4 "https://$INST/latest_version?id=lqG7g_EqvT8&itag=18" || true
             if valid; then echo "source=invidious:$INST"; break; fi
             rm -f video.mp4
@@ -69,6 +71,7 @@ jobs:
           echo "frames extracted: $(ls video-analysis/frames | wc -l)"
 
       - name: Commit video + analysis into the branch
+        if: success()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -81,3 +84,14 @@ jobs:
           git add -A
           git commit -m "automated: fetch reference video + probe + frames" || echo "nothing to commit"
           git push
+
+      - name: Commit the fetch log (even on failure)
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p video-analysis
+          cp fetch.log video-analysis/fetch.log 2>/dev/null || true
+          git add -A
+          git commit -m "automated: fetch log" || echo "nothing to commit"
+          git push || true
